@@ -9,6 +9,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 // Custom function imports
 import { setUpBackground, createStars } from '../util/Background';
 
+import { createAtmosphereMaterial, createAtmosphereGlow } from '../util/AtmosphericGlow';
+
 export default function SaturnScene() {
     const mountRef = useRef<HTMLCanvasElement>(null);
 
@@ -99,10 +101,15 @@ export default function SaturnScene() {
             ringParent.add(segment);
         }
 
+        // Atmospheric glow
+
+        const atmosphereMaterial = createAtmosphereMaterial();
+        const atmosphere = createAtmosphereGlow(3.1, ringSegments, ringSegments, atmosphereMaterial)
+        scene.add(atmosphere);
+
         // Animation Loop
         const animate = () => {
             requestAnimationFrame(animate);
-            planet.rotation.y += 0.002;
             ringParent.rotation.y += 0.005;
             controls.update();
             renderer.render(scene, camera);
