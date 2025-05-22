@@ -115,7 +115,7 @@ export default function SaturnScene() {
 
         // Atmospheric glow
         const atmosphereMaterial = createAtmosphereMaterial();
-        const atmosphere = createAtmosphereGlow(3.1, ringSegments, ringSegments, atmosphereMaterial)
+        const atmosphere = createAtmosphereGlow(20.3, ringSegments, ringSegments, atmosphereMaterial)
         scene.add(atmosphere);
 
         // Animation Loop that operates celestial object's movement, 
