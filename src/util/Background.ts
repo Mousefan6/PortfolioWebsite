@@ -12,6 +12,9 @@
 import * as THREE from "three";
 
 export function setUpBackground(scene: THREE.Scene): void {
+    // Black background
+    scene.background = new THREE.Color(0x000000);
+
     // Lighting
     const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
     scene.add(ambientLight);
@@ -19,22 +22,9 @@ export function setUpBackground(scene: THREE.Scene): void {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(10, 10, 10);
     scene.add(directionalLight);
-
-    // Skydome with stars
-    const loader = new THREE.TextureLoader();
-    const starTexture = loader.load('models/stars.JPEG');
-
-    const skyGeometry = new THREE.SphereGeometry(500, 32, 32);
-    const skyMaterial = new THREE.MeshBasicMaterial({
-        map: starTexture,
-        side: THREE.BackSide
-    });
-
-    const skyDome = new THREE.Mesh(skyGeometry, skyMaterial);
-    scene.add(skyDome);
 }
 
-export function createStars(scene: THREE.Scene, minDistance = 20, spread = 200) {
+export function createStars(scene: THREE.Scene, minDistance = 24, spread = 400) {
     let x, y, z;
     let distance = 0;
 
@@ -44,7 +34,8 @@ export function createStars(scene: THREE.Scene, minDistance = 20, spread = 200) 
         distance = Math.sqrt(x * x + y * y + z * z);
     } while (distance < minDistance);
 
-    const geometry = new THREE.SphereGeometry(0.15, 24, 24);
+    const starSize = Math.random() * 0.2;
+    const geometry = new THREE.SphereGeometry(starSize, 24, 24);
     const material = new THREE.MeshStandardMaterial({
         color: 0xffffff,
         emissive: 0xffffff

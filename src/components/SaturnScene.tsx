@@ -28,8 +28,8 @@ export default function SaturnScene() {
         const scene = new THREE.Scene();
         setUpBackground(scene);
 
-        // Instantiate 200 star objects into the scene
-        Array(200).fill(null).forEach(() => createStars(scene));
+        // Instantiate 450 star objects into the scene
+        Array(450).fill(null).forEach(() => createStars(scene));
 
         // Camera Setup
         const camera = new THREE.PerspectiveCamera(
@@ -189,9 +189,9 @@ export default function SaturnScene() {
 
         const setUpAudio = async () => {
             // audioManager.registerAudio("song1", "/audios/song.m4a");
-            audioManager.registerAudio("song1", "/audios/song4.mp3");
+            audioManager.registerAudio("song1", "/audios/song3.mp3");
             await audioManager.loadAudio("song1");
-            audioManager.setVolume(0.2);
+            audioManager.setVolume(0.1);
         };
 
         setUpAudio();
