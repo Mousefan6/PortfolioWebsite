@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 
-import PlayIcon from '../models/PlayButton.png';
-import PauseIcon from 'models/PauseButton.png';
-import MusicOnIcon from 'models/MusicOn.png';
-import MusicOffIcon from 'models/MusicOff.png';
+import PlayIcon from '/assets/PlayButton.png';
+import PauseIcon from '/assets/PauseButton.png';
+import MusicOnIcon from '/assets/MusicOn.png';
+import MusicOffIcon from '/assets/MusicOff.png';
 // import ListIcon from 'models/ListButton.png';
 
 const ControlButtons = () => {
@@ -17,7 +17,6 @@ const ControlButtons = () => {
 
     const toggleMusic = () => {
         setMusicOn(prev => !prev);
-        
     };
 
     return (
