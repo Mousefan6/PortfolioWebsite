@@ -45,7 +45,12 @@ export default function SaturnScene() {
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
         
+        // Camera Orbit controls (panning, zooming, and rotation)
         const controls = new OrbitControls(camera, renderer.domElement);
+        controls.minDistance = 20;
+        controls.maxDistance = 100;
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
 
         // Instantiate Saturn object
         const planetTexture = new THREE.TextureLoader().load('models/saturn.JPEG');

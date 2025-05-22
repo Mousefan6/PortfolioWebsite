@@ -25,14 +25,19 @@ export function setUpBackground(scene: THREE.Scene): void {
     scene.background = spaceTexture;
 }
 
-export function createStars(scene: THREE.Scene): void {
+export function createStars(scene: THREE.Scene, minDistance = 20, spread = 200) {
+    let x, y, z;
+    let distance = 0;
+
+    // Ensure stars do not spawn too close to Saturn
+    do {
+        [x, y, z] = Array(3).fill(0).map(() => THREE.MathUtils.randFloatSpread(spread));
+        distance = Math.sqrt(x * x + y * y + z * z);
+    } while (distance < minDistance);
+
     const geometry = new THREE.SphereGeometry(0.15, 24, 24);
     const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
     const star = new THREE.Mesh(geometry, material);
-
-    const [x, y, z] = Array(3)
-        .fill(0)
-        .map(() => THREE.MathUtils.randFloatSpread(100));
 
     star.position.set(x, y, z);
     scene.add(star);
