@@ -64,7 +64,7 @@ export default function SaturnScene() {
         scene.add(planet);
 
         // Instantiate Saturn Rings object
-        const ringSegments = 128;
+        const ringSegments = 256;
         const innerRadius = 5;
         const outerRadius = 8;
         const ringParent = new THREE.Object3D();
@@ -79,9 +79,7 @@ export default function SaturnScene() {
                 color: 0xffbb88,
                 side: THREE.DoubleSide,
                 opacity: 0.8,
-                transparent: true,
-                emissive: 0xffbb88,
-                emissiveIntensity: 0.1
+                transparent: true
             });
 
             const segmentGeometry = new THREE.RingGeometry(
@@ -123,9 +121,9 @@ export default function SaturnScene() {
             if (audioManager.analyser && audioManager.playing) {
                 const freqData = audioManager.getFrequencyData();
 
-                const quarters = 4;
+                const quarters = 1;
                 const quarterSize = ringSegments / quarters;
-                const freqBandSize = 256 / quarterSize; // if using 256 frequency bins
+                const freqBandSize = 128 / quarterSize; // if using 256 frequency bins
 
                 for (let q = 0; q < quarters; q++) {
                     for (let i = 0; i < quarterSize; i++) {
@@ -148,13 +146,13 @@ export default function SaturnScene() {
                         const bandStart = i * freqBandSize;
                         let avg = 0;
                         for (let j = bandStart; j < bandStart + freqBandSize; j++) {
-                            avg += freqData[Math.floor(j)] ?? -140;
+                            avg += freqData[Math.floor(j)] ?? -105;
                         }
                         avg /= freqBandSize;
 
                         const normalized = Math.max(0, (avg + 105) / 105);
-                        const intensity = Math.pow(normalized, 1.5);
-                        const stretchFactor = 0.5 + intensity * 0.95;
+                        const intensity = normalized
+                        const stretchFactor = 1 + intensity * 2.5;
 
                         const deformSegment = (pos: THREE.BufferAttribute, base: Float32Array) => {
                             for (let k = 0; k < pos.count; k++) {
@@ -172,6 +170,17 @@ export default function SaturnScene() {
                                 pos.array[ix] = Math.cos(angle) * finalRadius;
                                 pos.array[ix + 1] = Math.sin(angle) * finalRadius;
                                 pos.array[ix + 2] = z;
+
+                                const hue = (1.0 - intensity) * 0.9;
+                                const lightness = 0.4 + intensity * 0.7;
+                                const color = new THREE.Color();
+                                color.setHSL(hue, 1.0, lightness);
+
+                                const matA = segmentA.material as THREE.MeshStandardMaterial;
+                                const matB = segmentB.material as THREE.MeshStandardMaterial;
+
+                                matA.emissive = color;
+                                matB.emissive = color;
                             }
                             pos.needsUpdate = true;
                         };
@@ -183,7 +192,6 @@ export default function SaturnScene() {
 
             }
         };
-
 
         animate();
 
@@ -208,9 +216,10 @@ export default function SaturnScene() {
         audioManager.initializeAudio();
 
         const setUpAudio = async () => {
-            audioManager.registerAudio("song1", "/audios/song3.mp3");
+            // audioManager.registerAudio("song1", "/audios/song2.mp3");
+            audioManager.registerAudio("song1", "/audios/song4.mp3");
             await audioManager.loadAudio("song1");
-            audioManager.setVolume(0.1);
+            audioManager.setVolume(0.2);
         };
 
         setUpAudio();
