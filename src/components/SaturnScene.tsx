@@ -208,8 +208,9 @@ export default function SaturnScene() {
         audioManager.initializeAudio();
 
         const setUpAudio = async () => {
-            audioManager.registerAudio("song1", "/audios/song2.mp3");
+            audioManager.registerAudio("song1", "/audios/song3.mp3");
             await audioManager.loadAudio("song1");
+            audioManager.setVolume(0.1);
         };
 
         setUpAudio();
