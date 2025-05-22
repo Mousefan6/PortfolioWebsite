@@ -8,6 +8,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 // Custom function imports
 import { setUpBackground, createStars } from '../util/Background';
+import { audioManager } from '../util/AudioManager';
 
 export default function SaturnScene() {
     const mountRef = useRef<HTMLCanvasElement>(null);
@@ -24,7 +25,7 @@ export default function SaturnScene() {
         // Scene Setup
         const scene = new THREE.Scene();
         setUpBackground(scene);
-        
+
         // Instantiate 200 star objects into the scene
         Array(200).fill(null).forEach(() => createStars(scene));
 
@@ -36,7 +37,7 @@ export default function SaturnScene() {
             1000
         );
         camera.position.setZ(30);
-        
+
         // Renderer Setup
         const renderer = new THREE.WebGLRenderer({
             canvas: mountRef.current!,
@@ -44,7 +45,7 @@ export default function SaturnScene() {
         });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
-        
+
         // Camera Orbit controls (panning, zooming, and rotation)
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.minDistance = 20;
@@ -124,6 +125,37 @@ export default function SaturnScene() {
             window.removeEventListener('resize', handleResize);
             renderer.dispose();
             scene.clear();
+        };
+    }, []);
+
+    useEffect(() => {
+        audioManager.initializeAudio();
+
+        const setUpAudio = async () => {
+            audioManager.registerAudio("song1", "/audios/song.m4a");
+            await audioManager.loadAudio("song1");
+        };
+
+        setUpAudio();
+
+        const unlockAudioContext = async () => {
+            if (audioManager.context?.state === "suspended") {
+                await audioManager.context.resume();
+            }
+
+            if (!audioManager.playing) {
+                audioManager.play();
+            }
+
+            window.removeEventListener('click', unlockAudioContext);
+        };
+
+        // Register a one-time click handler to unlock audio
+        window.addEventListener('click', unlockAudioContext);
+
+        return () => {
+            window.removeEventListener('click', unlockAudioContext);
+            audioManager.stop();
         };
     }, []);
 
