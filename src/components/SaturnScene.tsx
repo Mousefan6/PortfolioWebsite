@@ -68,6 +68,8 @@ export default function SaturnScene() {
         const ringParent = new THREE.Object3D();
         scene.add(ringParent);
 
+        const ringSegmentsArray: THREE.Mesh[] = [];
+
         for (let i = 0; i < ringSegments; i++) {
             const angle = (i / ringSegments) * Math.PI * 2;
 
@@ -90,6 +92,8 @@ export default function SaturnScene() {
             );
 
             const segment = new THREE.Mesh(segmentGeometry, ringMaterial);
+            segment.geometry.computeBoundingBox();
+            segment.geometry.userData.originalPositions = segment.geometry.attributes.position.array.slice();
             segment.rotation.x = Math.PI / 2;
 
             segment.userData = {
@@ -98,16 +102,82 @@ export default function SaturnScene() {
             };
 
             ringParent.add(segment);
+            ringSegmentsArray.push(segment);
         }
 
-        // Animation Loop
+        // Animation Loop that operates celestial object's movement, camera, and audio frequency data.
         const animate = () => {
             requestAnimationFrame(animate);
             planet.rotation.y += 0.002;
             ringParent.rotation.y += 0.005;
             controls.update();
             renderer.render(scene, camera);
+
+            // Audio visualizer logic
+            if (audioManager.analyser && audioManager.playing) {
+                const freqData = audioManager.getFrequencyData();
+
+                const quarters = 4;
+                const quarterSize = ringSegments / quarters;
+                const freqBandSize = 256 / quarterSize; // if using 256 frequency bins
+
+                for (let q = 0; q < quarters; q++) {
+                    for (let i = 0; i < quarterSize; i++) {
+                        const globalIndex = q * quarterSize + i;
+                        const mirrorIndex = q * quarterSize + (quarterSize - 1 - i);
+
+                        const segmentA = ringSegmentsArray[globalIndex];
+                        const segmentB = ringSegmentsArray[mirrorIndex];
+
+                        const geometryA = segmentA.geometry as THREE.RingGeometry;
+                        const geometryB = segmentB.geometry as THREE.RingGeometry;
+
+                        const basePositionsA = geometryA.userData.originalPositions as Float32Array;
+                        const basePositionsB = geometryB.userData.originalPositions as Float32Array;
+
+                        const posA = geometryA.attributes.position as THREE.BufferAttribute;
+                        const posB = geometryB.attributes.position as THREE.BufferAttribute;
+
+                        // Calculate average intensity from frequency band
+                        const bandStart = i * freqBandSize;
+                        let avg = 0;
+                        for (let j = bandStart; j < bandStart + freqBandSize; j++) {
+                            avg += freqData[Math.floor(j)] ?? -140;
+                        }
+                        avg /= freqBandSize;
+
+                        const normalized = Math.max(0, (avg + 105) / 105);
+                        const intensity = Math.pow(normalized, 1.5);
+                        const stretchFactor = 0.5 + intensity * 0.95;
+
+                        const deformSegment = (pos: THREE.BufferAttribute, base: Float32Array) => {
+                            for (let k = 0; k < pos.count; k++) {
+                                const ix = k * 3;
+                                const x = base[ix];
+                                const y = base[ix + 1];
+                                const z = base[ix + 2];
+
+                                const radius = Math.sqrt(x * x + y * y);
+                                const angle = Math.atan2(y, x);
+
+                                const isOuter = radius > (innerRadius + (outerRadius - innerRadius) / 2);
+                                const finalRadius = isOuter ? radius * stretchFactor : radius;
+
+                                pos.array[ix] = Math.cos(angle) * finalRadius;
+                                pos.array[ix + 1] = Math.sin(angle) * finalRadius;
+                                pos.array[ix + 2] = z;
+                            }
+                            pos.needsUpdate = true;
+                        };
+
+                        deformSegment(posA, basePositionsA);
+                        deformSegment(posB, basePositionsB);
+                    }
+                }
+
+            }
         };
+
 
         animate();
 
@@ -132,7 +202,7 @@ export default function SaturnScene() {
         audioManager.initializeAudio();
 
         const setUpAudio = async () => {
-            audioManager.registerAudio("song1", "/audios/song.m4a");
+            audioManager.registerAudio("song1", "/audios/song2.mp3");
             await audioManager.loadAudio("song1");
         };
 

@@ -200,11 +200,13 @@ export class AudioManager {
      * 
      * @returns The frequency data
      */
-    public getFrequencyData() {
-        if (this.analyser && this.frequencyData) {
-            return this.analyser.getFloatFrequencyData(this.frequencyData);
+    getFrequencyData(): Float32Array {
+        if (!this.analyser || !this.frequencyData) {
+            return new Float32Array(); // Return empty but safe
         }
-        return [];
+
+        this.analyser.getFloatFrequencyData(this.frequencyData);
+        return this.frequencyData;
     }
 
     // TODO: Add more methods for other features later
