@@ -64,7 +64,7 @@ export default function SaturnScene() {
         scene.add(planet);
 
         // Instantiate Saturn Rings object
-        const ringSegments = 256;
+        const ringSegments = 512;
         const innerRadius = 30;
         const outerRadius = 40;
         const ringParent = new THREE.Object3D();
@@ -122,32 +122,36 @@ export default function SaturnScene() {
         // camera, and audio visualization on the ring
         const animate = () => {
             requestAnimationFrame(animate);
-            ringParent.rotation.y += 0.005;
+            // ringParent.rotation.y += 0.005;
             controls.update();
             renderer.render(scene, camera);
 
             if (audioManager.analyser && audioManager.playing) {
                 const freqData = audioManager.getFrequencyData();
 
-                const quarterSize = ringSegments;
-
-                for (let i = 0; i < quarterSize; i++) {
+                for (let i = 0; i < ringSegments; i++) {
                     const segment = ringSegmentsArray[i];
 
                     const freqIndex = i % freqData.length;
                     const raw = freqData[freqIndex] ?? -70;
-                    const intensity = Math.max(0, (raw + 70) / 70);
+                    let intensity = Math.max(0, (raw + 70) / 70);
+
+                    // Boost intensity on second half of the ring
+                    if (i >= ringSegments / 2) {
+                        intensity *= 1.6;
+                        intensity = Math.min(intensity, 1.0);
+                    }
 
                     // Add sine modulation to create wavy pattern
-                    const waveAmplitude = 0.1;
+                    const waveAmplitude = 0.5;
                     const waveFrequency = 8;
-                    const wave = Math.sin((i / quarterSize) * Math.PI * 2 * waveFrequency + performance.now() * 0.003);
+                    const wave = Math.sin((i / ringSegments) * Math.PI * 2 * waveFrequency + performance.now() * 0.003);
 
                     const waveFactor = 1.0 + waveAmplitude * wave;
 
                     const scaleY = (1.0 + intensity * 5.5) * waveFactor;
-                    const scaleX = 1.0 + intensity * 0.75;
-                    const scaleZ = 1.0 + intensity * 0.3;
+                    const scaleX = 1.0 + intensity * 1.1;
+                    const scaleZ = 1.0 + intensity * 4;
 
                     segment.scale.set(scaleX, scaleY, scaleZ);
                     segment.position.y = (scaleY - 1) * 0.5;
