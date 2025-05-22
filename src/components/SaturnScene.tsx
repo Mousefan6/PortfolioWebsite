@@ -66,40 +66,48 @@ export default function SaturnScene() {
         // Instantiate Saturn Rings object
         const ringSegments = 256;
         const innerRadius = 5;
-        const outerRadius = 8;
+        const outerRadius = 12;
         const ringParent = new THREE.Object3D();
         scene.add(ringParent);
 
         const ringSegmentsArray: THREE.Mesh[] = [];
 
-        for (let i = 0; i < ringSegments; i++) {
-            const angle = (i / ringSegments) * Math.PI * 2;
+        const segmentCount = ringSegments;
+        const segmentAngle = (Math.PI * 2) / segmentCount;
+        const segmentDepth = 4.5; // Length of segments
+        const segmentWidth = (2 * Math.PI * ((innerRadius + outerRadius) / 2)) / segmentCount;
+        const segmentHeight = 0.5; // Vertical thickness
+        const segmentRadius = (innerRadius + outerRadius) / 2;
 
-            const ringMaterial = new THREE.MeshStandardMaterial({
-                color: 0xffbb88,
-                side: THREE.DoubleSide,
-                opacity: 0.8,
-                transparent: true
-            });
+        for (let i = 0; i < segmentCount; i++) {
+            const angle = i * segmentAngle;
 
-            const segmentGeometry = new THREE.RingGeometry(
-                innerRadius,
-                outerRadius,
-                32,
-                1,
-                angle - 0.01,
-                (Math.PI * 2 / ringSegments) + 0.01
+            const geometry = new THREE.BoxGeometry(
+                segmentDepth,   // width (radial direction; outwards from center)
+                segmentHeight,  // height (upward Y)
+                segmentWidth    // depth (along the arc)
             );
 
-            const segment = new THREE.Mesh(segmentGeometry, ringMaterial);
-            segment.geometry.computeBoundingBox();
-            segment.geometry.userData.originalPositions = segment.geometry.attributes.position.array.slice();
-            segment.rotation.x = Math.PI / 2;
+            const material = new THREE.MeshStandardMaterial({
+                color: 0xffbb88,
+                transparent: true,
+                opacity: 0.8
+            });
 
-            segment.userData = {
-                baseScale: 1.0,
-                baseColor: ringMaterial.color.clone()
-            };
+            const segment = new THREE.Mesh(geometry, material);
+
+            // Position around ring
+            segment.position.set(
+                Math.cos(angle) * segmentRadius,
+                0,
+                Math.sin(angle) * segmentRadius
+            );
+
+            segment.userData.originalY = segment.position.y;
+
+            // Rotate so it faces outward from the center
+            segment.lookAt(0, 0, 0);
+            segment.rotateY(Math.PI / 2); // orient long side along the arc
 
             ringParent.add(segment);
             ringSegmentsArray.push(segment);
@@ -110,84 +118,48 @@ export default function SaturnScene() {
         const atmosphere = createAtmosphereGlow(3.1, ringSegments, ringSegments, atmosphereMaterial)
         scene.add(atmosphere);
 
-        // Animation Loop that operates celestial object's movement, camera, and audio frequency data.
+        // Animation Loop that operates celestial object's movement, 
+        // camera, and audio visualization on the ring
         const animate = () => {
             requestAnimationFrame(animate);
             ringParent.rotation.y += 0.005;
             controls.update();
             renderer.render(scene, camera);
 
-            // Audio visualizer logic
             if (audioManager.analyser && audioManager.playing) {
                 const freqData = audioManager.getFrequencyData();
 
-                const quarters = 1;
-                const quarterSize = ringSegments / quarters;
-                const freqBandSize = 128 / quarterSize; // if using 256 frequency bins
+                const quarterSize = ringSegments;
 
-                for (let q = 0; q < quarters; q++) {
-                    for (let i = 0; i < quarterSize; i++) {
-                        const globalIndex = q * quarterSize + i;
-                        const mirrorIndex = q * quarterSize + (quarterSize - 1 - i);
+                for (let i = 0; i < quarterSize; i++) {
+                    const segment = ringSegmentsArray[i];
 
-                        const segmentA = ringSegmentsArray[globalIndex];
-                        const segmentB = ringSegmentsArray[mirrorIndex];
+                    const freqIndex = i % freqData.length;
+                    const raw = freqData[freqIndex] ?? -70;
+                    const intensity = Math.max(0, (raw + 70) / 70);
 
-                        const geometryA = segmentA.geometry as THREE.RingGeometry;
-                        const geometryB = segmentB.geometry as THREE.RingGeometry;
+                    // Add sine modulation to create wavy pattern
+                    const waveAmplitude = 0.1;
+                    const waveFrequency = 8;
+                    const wave = Math.sin((i / quarterSize) * Math.PI * 2 * waveFrequency + performance.now() * 0.003);
 
-                        const basePositionsA = geometryA.userData.originalPositions as Float32Array;
-                        const basePositionsB = geometryB.userData.originalPositions as Float32Array;
+                    const waveFactor = 1.0 + waveAmplitude * wave;
 
-                        const posA = geometryA.attributes.position as THREE.BufferAttribute;
-                        const posB = geometryB.attributes.position as THREE.BufferAttribute;
+                    const scaleY = (1.0 + intensity * 3.5) * waveFactor;
+                    const scaleX = 1.0 + intensity * 0.75;
+                    const scaleZ = 1.0 + intensity * 0.3;
 
-                        // Calculate average intensity from frequency band
-                        const bandStart = i * freqBandSize;
-                        let avg = 0;
-                        for (let j = bandStart; j < bandStart + freqBandSize; j++) {
-                            avg += freqData[Math.floor(j)] ?? -105;
-                        }
-                        avg /= freqBandSize;
+                    segment.scale.set(scaleX, scaleY, scaleZ);
+                    segment.position.y = (scaleY - 1) * 0.5;
 
-                        const normalized = Math.max(0, (avg + 105) / 105);
-                        const intensity = normalized
-                        const stretchFactor = 1 + intensity * 2.5;
+                    const hue = (1.0 - intensity) * 0.9;
+                    const lightness = 0.4 + intensity * 0.7;
+                    const color = new THREE.Color().setHSL(hue, 1.0, lightness);
 
-                        const deformSegment = (pos: THREE.BufferAttribute, base: Float32Array) => {
-                            for (let k = 0; k < pos.count; k++) {
-                                const ix = k * 3;
-                                const x = base[ix];
-                                const y = base[ix + 1];
-                                const z = base[ix + 2];
-
-                                const radius = Math.sqrt(x * x + y * y);
-                                const angle = Math.atan2(y, x);
-
-                                const isOuter = radius > (innerRadius + (outerRadius - innerRadius) / 2);
-                                const finalRadius = isOuter ? radius * stretchFactor : radius;
-
-                                pos.array[ix] = Math.cos(angle) * finalRadius;
-                                pos.array[ix + 1] = Math.sin(angle) * finalRadius;
-                                pos.array[ix + 2] = z;
-
-                                const hue = (1.0 - intensity) * 0.9;
-                                const lightness = 0.4 + intensity * 0.7;
-                                const color = new THREE.Color();
-                                color.setHSL(hue, 1.0, lightness);
-
-                                const matA = segmentA.material as THREE.MeshStandardMaterial;
-                                const matB = segmentB.material as THREE.MeshStandardMaterial;
-
-                                matA.emissive = color;
-                                matB.emissive = color;
-                            }
-                            pos.needsUpdate = true;
-                        };
-
-                        deformSegment(posA, basePositionsA);
-                        deformSegment(posB, basePositionsB);
-                    }
+                    const mat = segment.material as THREE.MeshStandardMaterial;
+                    mat.color = color;
+                    mat.emissive = color;
+                    mat.emissiveIntensity = 0.2 + intensity * 1.5;
                 }
 
             }
@@ -216,7 +188,7 @@ export default function SaturnScene() {
         audioManager.initializeAudio();
 
         const setUpAudio = async () => {
-            // audioManager.registerAudio("song1", "/audios/song2.mp3");
+            // audioManager.registerAudio("song1", "/audios/song.m4a");
             audioManager.registerAudio("song1", "/audios/song4.mp3");
             await audioManager.loadAudio("song1");
             audioManager.setVolume(0.2);
