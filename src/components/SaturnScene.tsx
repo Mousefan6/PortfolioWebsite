@@ -58,15 +58,15 @@ export default function SaturnScene() {
         // Instantiate Saturn object
         const planetTexture = new THREE.TextureLoader().load('models/saturn.JPEG');
         const planet = new THREE.Mesh(
-            new THREE.SphereGeometry(3, 128, 128),
+            new THREE.SphereGeometry(20, 128, 128),
             new THREE.MeshStandardMaterial({ map: planetTexture })
         );
         scene.add(planet);
 
         // Instantiate Saturn Rings object
         const ringSegments = 256;
-        const innerRadius = 5;
-        const outerRadius = 12;
+        const innerRadius = 30;
+        const outerRadius = 40;
         const ringParent = new THREE.Object3D();
         scene.add(ringParent);
 
@@ -74,7 +74,7 @@ export default function SaturnScene() {
 
         const segmentCount = ringSegments;
         const segmentAngle = (Math.PI * 2) / segmentCount;
-        const segmentDepth = 4.5; // Length of segments
+        const segmentDepth = 12; // Length of segments
         const segmentWidth = (2 * Math.PI * ((innerRadius + outerRadius) / 2)) / segmentCount;
         const segmentHeight = 0.5; // Vertical thickness
         const segmentRadius = (innerRadius + outerRadius) / 2;
@@ -145,7 +145,7 @@ export default function SaturnScene() {
 
                     const waveFactor = 1.0 + waveAmplitude * wave;
 
-                    const scaleY = (1.0 + intensity * 3.5) * waveFactor;
+                    const scaleY = (1.0 + intensity * 5.5) * waveFactor;
                     const scaleX = 1.0 + intensity * 0.75;
                     const scaleZ = 1.0 + intensity * 0.3;
 
@@ -189,7 +189,7 @@ export default function SaturnScene() {
 
         const setUpAudio = async () => {
             // audioManager.registerAudio("song1", "/audios/song.m4a");
-            audioManager.registerAudio("song1", "/audios/song3.mp3");
+            audioManager.registerAudio("song1", "/audios/song4.mp3");
             await audioManager.loadAudio("song1");
             audioManager.setVolume(0.1);
         };
