@@ -1,8 +1,8 @@
 /**************************************************************
-* Author(s): Bryan Lee
+* Author(s): Jaden Lee, Bryan Lee
 * Last Updated: 5/21/2025
 *
-* File:: Background.js
+* File:: Background.ts
 *
 * Description:: This file serves the functions necessary for creating
 *               the background of the landing page scene.

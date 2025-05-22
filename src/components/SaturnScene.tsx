@@ -9,7 +9,6 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 // Custom function imports
 import { setUpBackground, createStars } from '../util/Background';
 
-
 export default function SaturnScene() {
     const mountRef = useRef<HTMLCanvasElement>(null);
 
@@ -25,7 +24,6 @@ export default function SaturnScene() {
         // Scene Setup
         const scene = new THREE.Scene();
         setUpBackground(scene);
-        scene.background = new THREE.Color(0x000000);
         
         // Instantiate 200 star objects into the scene
         Array(200).fill(null).forEach(() => createStars(scene));

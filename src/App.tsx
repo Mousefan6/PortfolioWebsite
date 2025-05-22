@@ -1,3 +1,7 @@
+/**
+ * For adding new pages
+ */
+
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 
 import DefaultLayout from './layouts/DefaultLayout.jsx';
