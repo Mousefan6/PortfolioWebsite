@@ -1,3 +1,13 @@
+/**************************************************************
+* Author(s): Jaden Lee, Bryan Lee
+* Last Updated: 5/23/2025
+*
+* File:: AudioManager.ts
+*
+* Description:: This file controls the audio for the scene and tracks the frequency data.
+*
+**************************************************************/
+
 export class AudioManager {
     // Audio handlers
     public context: AudioContext | null;
@@ -111,7 +121,7 @@ export class AudioManager {
      * Loads a audio file for playing
      * 
      * @param name The registered audio's name.
-     * @returns The promise of loading the audio.
+     * @returns Whether loading the audio was successful or not.
      */
     public async loadAudio(name: string): Promise<boolean> {
         if (!this.initialized && !this.initializeAudio()) {
@@ -268,6 +278,42 @@ export class AudioManager {
 
         this.instrumentalAnalyser.getFloatFrequencyData(this.instrumentalData);
         return this.instrumentalData;
+    }
+
+    /**
+     * Acquire merged audio frequency data (vocal + instrumental).
+     * 
+     * @returns The merged frequency data.
+     */
+    public getAudioData(): Float32Array {
+        if (!this.vocalData || !this.instrumentalData) {
+            return new Float32Array(); // Return empty but safe
+        }
+
+        const vocalReady = this.vocalAnalyser && this.vocalData;
+        const instrReady = this.instrumentalAnalyser && this.instrumentalData;
+
+        if (vocalReady) this.vocalAnalyser!.getFloatFrequencyData(this.vocalData);
+        if (instrReady) this.instrumentalAnalyser!.getFloatFrequencyData(this.instrumentalData);
+
+        // If both voca and instrumental are available then merge
+        if (vocalReady && instrReady) {
+            const len = Math.min(this.vocalData.length, this.instrumentalData.length);
+            const merged = new Float32Array(len);
+
+            // Taking the max of the two
+            for (let i = 0; i < len; i++) {
+                merged[i] = Math.max(this.vocalData[i], this.instrumentalData[i]);
+            }
+
+            return merged;
+        }
+
+        // If only one is available then return that
+        if (vocalReady) return this.vocalData;
+        if (instrReady) return this.instrumentalData;
+
+        return new Float32Array(); // safe fallback
     }
 
     // TODO: Add more methods for other features later

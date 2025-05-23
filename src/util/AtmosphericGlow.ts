@@ -66,8 +66,8 @@ export function createAtmosphereMaterial() {
     return material;
 }
 
-export function createAtmosphereGlow(radius: number, segments: number, rings: number, material: THREE.ShaderMaterial) {
-    const geometry = new THREE.SphereGeometry(radius, segments, rings);
+export function createAtmosphereGlow(radius: number, width: number, height: number, material: THREE.ShaderMaterial) {
+    const geometry = new THREE.SphereGeometry(radius, width, height);
     const mesh = new THREE.Mesh(geometry, material);
     return mesh;
 }
