@@ -56,7 +56,7 @@ export default function SaturnScene() {
         controls.dampingFactor = 0.05;
 
         // Instantiate Saturn object
-        const planetTexture = new THREE.TextureLoader().load('models/saturn.JPEG');
+        const planetTexture = new THREE.TextureLoader().load('models/Planet.png');
         const planet = new THREE.Mesh(
             new THREE.SphereGeometry(20, 128, 128),
             new THREE.MeshStandardMaterial({ map: planetTexture })
@@ -193,9 +193,9 @@ export default function SaturnScene() {
 
         const setUpAudio = async () => {
             // audioManager.registerAudio("song1", "/audios/song.m4a");
-            audioManager.registerAudio("song1", "/audios/song4.mp3");
+            audioManager.registerAudio("song1", "/audios/song3.mp3");
             await audioManager.loadAudio("song1");
-            audioManager.setVolume(0.1);
+            // audioManager.setVolume(0.1);
         };
 
         setUpAudio();
