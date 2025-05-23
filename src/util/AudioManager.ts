@@ -1,56 +1,84 @@
 export class AudioManager {
-    context: AudioContext | null;
-    source: AudioBufferSourceNode | null;
-    analyser: AnalyserNode | null;
-    frequencyData: Float32Array | null;
-    gainNode: GainNode | null;
-    initialized: boolean;
-    playing: boolean;
-    muted: boolean;
-    currentSong: string | null;
-    songList: string[];
-    buffer: AudioBuffer | null;
-    autoplay: boolean;
-    defaultSong: string;
-    importedSounds: Map<string, string>;
+    // Audio handlers
+    public context: AudioContext | null;
+    private vocalSource: AudioBufferSourceNode | null;
+    private instrumentalSource: AudioBufferSourceNode | null = null;
+    public vocalAnalyser: AnalyserNode | null = null;
+    public instrumentalAnalyser: AnalyserNode | null = null;
+
+    // Audio metadata
+    private vocalData: Float32Array | null;
+    private instrumentalData: Float32Array | null;
+    private gainNode: GainNode | null;
+    private vocalBuffer: AudioBuffer | null = null;
+    private instrumentalBuffer: AudioBuffer | null = null;
+
+    // Audio state
+    public initialized: boolean;
+    public playing: boolean;
+    public muted: boolean;
+
+    // Audio settings
+    public currentSong: string | null;
+    public autoplay: boolean;
+
+    importedSounds: Map<string, [string, string]>;
 
     constructor() {
+        // Audio handlers
         this.context = null;
-        this.source = null;
-        this.analyser = null;
-        this.frequencyData = null;
+        this.vocalSource = null;
+        this.instrumentalSource = null;
+        this.vocalAnalyser = null;
+        this.instrumentalAnalyser = null;
+
+        // Audio metadata
+        this.vocalData = null;
+        this.instrumentalData = null;
         this.gainNode = null;
+        this.vocalBuffer = null;
+        this.instrumentalBuffer = null;
+
+        // Audio state
         this.initialized = false;
         this.playing = false;
         this.muted = false;
+
+        // Audio settings
         this.currentSong = null;
-        this.songList = [];
-        this.buffer = null;
         this.autoplay = false;
-        this.defaultSong = 'audios/song.m4a';
-        this.importedSounds = new Map<string, string>();
+
+        this.importedSounds = new Map<string, [string, string]>();
     }
 
     /**
-     * Initialize the audio manager with an audio context, analyser, and gain node
+     * Initialize the audio manager with an audio context, analyser, and gain node (volume)
      * 
      * @returns True if audio is initialized, false otherwise
      */
     public initializeAudio(): boolean {
+        if (this.initialized) {
+            return true;
+        }
+
         try {
             this.context = new (window.AudioContext || (window as any).webkitAudioContext)();
 
-            this.analyser = this.context.createAnalyser();
-            this.analyser.fftSize = 2048;
-            this.analyser.smoothingTimeConstant = 0.8;
-
-            const bufferLength = this.analyser.frequencyBinCount;
-            this.frequencyData = new Float32Array(bufferLength);
-
             this.gainNode = this.context.createGain();
             this.gainNode.gain.value = 0.5;
-
             this.gainNode.connect(this.context.destination);
+
+            // this.analyser = this.context.createAnalyser();
+            // this.analyser.fftSize = 32768;
+            // this.analyser.smoothingTimeConstant = 0.8;
+
+            // const bufferLength = this.analyser.frequencyBinCount;
+            // this.frequencyData = new Float32Array(bufferLength);
+
+            // this.gainNode = this.context.createGain();
+            // this.gainNode.gain.value = 0.5;
+
+            // this.gainNode.connect(this.context.destination);
 
             this.initialized = true;
             console.log("Audio Manager initialized!");
@@ -65,23 +93,31 @@ export class AudioManager {
      * Registers a single audio file
      * 
      * @param name The name of the audio file.
-     * @param fileUrl The file URL of the audio file.
+     * @param fileUrlVocal The file URL of the vocal audio file.
+     * @param fileUrlInstrumental The file URL of the instrumental audio file.
      */
-    public registerAudio(name: string, fileUrl: string): void {
-        this.importedSounds.set(name, fileUrl);
+    public registerAudio(name: string, fileUrlVocal: string, fileUrlInstrumental: string): void {
+        this.importedSounds.set(name, [fileUrlVocal, fileUrlInstrumental]);
     }
 
     /**
      * Registers multiple audio files
      * 
-     * @param audios An array of tuples containing the name and URL of each audio file.
+     * @param audios An array of tuples containing the name and tuple of files vocal
+     *               and instrumental of each audio file.
+     * 
+     * Example:
+     * audioManager.registerAudios([
+     *     ["song1", ["/audio/vocals1.mp3", "/audio/instrumental1.mp3"]],
+     *     ["song2", ["/audio/vocals2.mp3", "/audio/instrumental2.mp3"]],
+     * ]);
+     *
      */
-    public registerAudios(audios: [string, string][]): void {
-        audios.forEach(([name, url]) => {
-            this.registerAudio(name, url);
+    public registerAudios(audios: [string, [string, string]][]): void {
+        audios.forEach(([name, [fileUrlVocal, fileUrlInstrumental]]) => {
+            this.registerAudio(name, fileUrlVocal, fileUrlInstrumental);
         });
     }
-
 
     /**
      * Loads a audio file for playing
@@ -95,20 +131,18 @@ export class AudioManager {
         }
 
         try {
-            const url = this.importedSounds.get(name);
-            if (!url) {
-                throw new Error(`Sound "${name}" not found.`);
-            }
+            const urls = this.importedSounds.get(name);
+            if (!urls) throw new Error(`Audio "${name}" not found.`);
 
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP error: ${response.status}`);
-            }
+            const [vocalUrl, instrumentalUrl] = urls;
 
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await this.context!.decodeAudioData(arrayBuffer);
+            const [vocalBuffer, instrumentalBuffer] = await Promise.all([
+                fetch(vocalUrl).then(res => res.arrayBuffer()).then(buf => this.context!.decodeAudioData(buf)),
+                fetch(instrumentalUrl).then(res => res.arrayBuffer()).then(buf => this.context!.decodeAudioData(buf)),
+            ]);
 
-            this.buffer = audioBuffer;
+            this.vocalBuffer = vocalBuffer;
+            this.instrumentalBuffer = instrumentalBuffer;
             this.currentSong = name;
 
             if (this.autoplay) {
@@ -122,34 +156,57 @@ export class AudioManager {
         }
     }
 
-    // Play the audio
+    // Play the vocal and instrumental audio at the same time
     public play(): void {
-        if (this.playing) {
-            this.stop();
-        }
+        this.stop();
 
-        if (!this.context || !this.buffer || !this.analyser || !this.gainNode) {
+        if (!this.context || !this.vocalBuffer || !this.instrumentalBuffer || !this.gainNode) {
             console.error("Audio state before play; null found:", {
                 context: this.context,
-                buffer: this.buffer,
-                analyser: this.analyser,
-                gainNode: this.gainNode
+                vocalBuffer: this.vocalBuffer,
+                instrumentalBuffer: this.instrumentalBuffer,
+                gainNode: this.gainNode,
+                vocalAnalyser: this.vocalAnalyser,
+                instrumentalAnalyser: this.instrumentalAnalyser
             });
             return;
         }
 
         try {
-            this.source = this.context.createBufferSource();
-            this.source.buffer = this.buffer;
+            // Create sources
+            this.vocalSource = this.context.createBufferSource();
+            this.instrumentalSource = this.context.createBufferSource();
+            this.vocalSource.buffer = this.vocalBuffer;
+            this.instrumentalSource.buffer = this.instrumentalBuffer;
 
-            this.source.connect(this.analyser);
-            this.analyser.connect(this.gainNode);
+            // Create analysers
+            this.vocalAnalyser = this.context.createAnalyser();
+            this.instrumentalAnalyser = this.context.createAnalyser();
+            this.vocalAnalyser.fftSize = 32768;
+            this.instrumentalAnalyser.fftSize = 32768;
+            this.vocalAnalyser.smoothingTimeConstant = 0.8;
+            this.instrumentalAnalyser.smoothingTimeConstant = 0.8;
+
+            const vocalBufferLength = this.vocalAnalyser.frequencyBinCount;
+            this.vocalData = new Float32Array(vocalBufferLength);
+
+            const instrumentalBufferLength = this.instrumentalAnalyser.frequencyBinCount;
+            this.instrumentalData = new Float32Array(instrumentalBufferLength);
+
+            // Connect nodes
+            this.vocalSource.connect(this.vocalAnalyser);
+            this.instrumentalSource.connect(this.instrumentalAnalyser);
+            this.vocalAnalyser.connect(this.gainNode);
+            this.instrumentalAnalyser.connect(this.gainNode);
             this.gainNode.connect(this.context.destination);
 
-            this.source.start(0);
+            // Start playback
+            this.vocalSource.start(0);
+            this.instrumentalSource.start(0);
+
             this.playing = true;
 
-            this.source.onended = () => {
+            this.vocalSource.onended = () => {
                 this.playing = false;
             };
         } catch (e) {
@@ -159,10 +216,16 @@ export class AudioManager {
 
     // Stops the audio
     public stop(): void {
-        if (this.source) {
-            this.source.stop();
-            this.source.disconnect();
-            this.source = null;
+        if (this.vocalSource) {
+            this.vocalSource.stop();
+            this.vocalSource.disconnect();
+            this.vocalSource = null;
+        }
+
+        if (this.instrumentalSource) {
+            this.instrumentalSource.stop();
+            this.instrumentalSource.disconnect();
+            this.instrumentalSource = null;
         }
 
         this.playing = false;
@@ -170,11 +233,7 @@ export class AudioManager {
 
     // Toggle the audio
     public toggle(): void {
-        if (this.playing) {
-            this.stop();
-        } else {
-            this.play();
-        }
+        this.playing ? this.stop() : this.play();
     }
 
     // Mute the audio
@@ -196,17 +255,31 @@ export class AudioManager {
     }
 
     /**
-     * Acquire the audio's frequency data
+     * Acquire the vocal audio's frequency data
      * 
      * @returns The frequency data
      */
-    getFrequencyData(): Float32Array {
-        if (!this.analyser || !this.frequencyData) {
+    public getVocalData(): Float32Array {
+        if (!this.vocalAnalyser || !this.vocalData) {
             return new Float32Array(); // Return empty but safe
         }
 
-        this.analyser.getFloatFrequencyData(this.frequencyData);
-        return this.frequencyData;
+        this.vocalAnalyser.getFloatFrequencyData(this.vocalData);
+        return this.vocalData;
+    }
+
+    /**
+     * Acquire the instrumental audio's frequency data
+     * 
+     * @returns The frequency data
+     */
+    public getInstrumentalData(): Float32Array {
+        if (!this.instrumentalAnalyser || !this.instrumentalData) {
+            return new Float32Array(); // Return empty but safe
+        }
+
+        this.instrumentalAnalyser.getFloatFrequencyData(this.instrumentalData);
+        return this.instrumentalData;
     }
 
     // TODO: Add more methods for other features later

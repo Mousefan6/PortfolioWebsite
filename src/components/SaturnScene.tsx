@@ -56,7 +56,7 @@ export default function SaturnScene() {
         controls.dampingFactor = 0.05;
 
         // Instantiate Saturn object
-        const planetTexture = new THREE.TextureLoader().load('models/saturn.JPEG');
+        const planetTexture = new THREE.TextureLoader().load('models/Planet.png');
         const planet = new THREE.Mesh(
             new THREE.SphereGeometry(20, 128, 128),
             new THREE.MeshStandardMaterial({ map: planetTexture })
@@ -103,8 +103,6 @@ export default function SaturnScene() {
                 Math.sin(angle) * segmentRadius
             );
 
-            segment.userData.originalY = segment.position.y;
-
             // Rotate so it faces outward from the center
             segment.lookAt(0, 0, 0);
             segment.rotateY(Math.PI / 2); // orient long side along the arc
@@ -112,6 +110,51 @@ export default function SaturnScene() {
             ringParent.add(segment);
             ringSegmentsArray.push(segment);
         }
+
+        ringParent.rotation.set(THREE.MathUtils.degToRad(0), 0, THREE.MathUtils.degToRad(3));
+
+        // Outer ring
+        const outerRingParent = new THREE.Object3D();
+        scene.add(outerRingParent);
+
+        const outerRingSegmentsArray: THREE.Mesh[] = [];
+
+        const outerInnerRadius = 48;  // Slightly outside the first ring
+        const outerOuterRadius = 64; // Multiply by 1.6 from inner ring
+        const outerSegmentRadius = (outerInnerRadius + outerOuterRadius) / 2;
+        const outerSegmentWidth = (2 * Math.PI * outerSegmentRadius) / segmentCount;
+
+        for (let i = 0; i < segmentCount; i++) {
+            const angle = i * segmentAngle;
+
+            const geometry = new THREE.BoxGeometry(
+                segmentDepth,
+                segmentHeight,
+                outerSegmentWidth
+            );
+
+            const material = new THREE.MeshStandardMaterial({
+                color: 0x88bbff,
+                transparent: true,
+                opacity: 0.5
+            });
+
+            const segment = new THREE.Mesh(geometry, material);
+
+            segment.position.set(
+                Math.cos(angle) * outerSegmentRadius,
+                0,
+                Math.sin(angle) * outerSegmentRadius
+            );
+
+            segment.lookAt(0, 0, 0);
+            segment.rotateY(Math.PI / 2);
+
+            outerRingParent.add(segment);
+            outerRingSegmentsArray.push(segment);
+        }
+
+        outerRingParent.rotation.set(0, 0, THREE.MathUtils.degToRad(6));
 
         // Atmospheric glow
         const atmosphereMaterial = createAtmosphereMaterial();
@@ -122,23 +165,34 @@ export default function SaturnScene() {
         // camera, and audio visualization on the ring
         const animate = () => {
             requestAnimationFrame(animate);
-            // ringParent.rotation.y += 0.005;
+            ringParent.rotation.y += 0.005;
+            outerRingParent.rotation.y += 0.0025;
             controls.update();
             renderer.render(scene, camera);
 
-            if (audioManager.analyser && audioManager.playing) {
-                const freqData = audioManager.getFrequencyData();
+            if (audioManager.vocalAnalyser && audioManager.instrumentalAnalyser && audioManager.playing) {
+                const vocalData = audioManager.getVocalData();
+                const instrumentalData = audioManager.getInstrumentalData();
 
                 for (let i = 0; i < ringSegments; i++) {
                     const segment = ringSegmentsArray[i];
 
-                    const freqIndex = i % freqData.length;
-                    const raw = freqData[freqIndex] ?? -70;
+                    const freqIndex = i % vocalData.length;
+                    const raw = vocalData[freqIndex] ?? -70;
                     let intensity = Math.max(0, (raw + 70) / 70);
 
-                    // Boost intensity on second half of the ring
-                    if (i >= ringSegments / 2) {
-                        intensity *= 1.6;
+                    // Intensity equalizer to amplify the lower frequencies
+                    if (i <= ringSegments / 4) {
+                        intensity *= 1.03125;
+                        intensity = Math.min(intensity, 1.0);
+                    } else if (i <= ringSegments / 2) {
+                        intensity *= 1.0625;
+                        intensity = Math.min(intensity, 1.0);
+                    } else if (i <= ringSegments * 3 / 4) {
+                        intensity *= 1.125;
+                        intensity = Math.min(intensity, 1.0);
+                    } else {
+                        intensity *= 1.25;
                         intensity = Math.min(intensity, 1.0);
                     }
 
@@ -156,14 +210,86 @@ export default function SaturnScene() {
                     segment.scale.set(scaleX, scaleY, scaleZ);
                     segment.position.y = (scaleY - 1) * 0.5;
 
-                    const hue = (1.0 - intensity) * 0.9;
-                    const lightness = 0.4 + intensity * 0.7;
-                    const color = new THREE.Color().setHSL(hue, 1.0, lightness);
+                    // Define base colors
+                    const blue = new THREE.Color(0x0000ff);
+                    const purple = new THREE.Color(0x8000ff);
+                    const cyan = new THREE.Color(0x00ffff);
+
+                    let color: THREE.Color;
+
+                    if (intensity <= 1 / 3) { // Low intensity
+                        const t = intensity / (1 / 3);
+                        color = blue.clone().lerp(purple, t);
+                    } else if (intensity <= 2 / 3) { // Mid intensity
+                        const t = (intensity - 1 / 3) / (1 / 3);
+                        color = purple.clone().lerp(cyan, t);
+                    } else { // Extreme intensity
+                        const t = (intensity - 2 / 3) / (1 / 3);
+                        color = cyan.clone().lerp(blue, t);
+                    }
 
                     const mat = segment.material as THREE.MeshStandardMaterial;
                     mat.color = color;
                     mat.emissive = color;
                     mat.emissiveIntensity = 0.2 + intensity * 1.5;
+                }
+
+                for (let i = 0; i < ringSegments; i++) {
+                    const segment = outerRingSegmentsArray[i];
+
+                    const freqIndex = i % instrumentalData.length;
+                    const raw = instrumentalData[freqIndex] ?? -70;
+                    let intensity = Math.max(0, (raw + 70) / 70);
+
+                    // Intensity equalizer to amplify the lower frequencies
+                    if (i <= ringSegments / 4) {
+                        intensity *= 1.03125;
+                        intensity = Math.min(intensity, 1.0);
+                    } else if (i <= ringSegments / 2) {
+                        intensity *= 1.0625;
+                        intensity = Math.min(intensity, 1.0);
+                    } else if (i <= ringSegments * 3 / 4) {
+                        intensity *= 1.125;
+                        intensity = Math.min(intensity, 1.0);
+                    } else {
+                        intensity *= 1.25;
+                        intensity = Math.min(intensity, 1.0);
+                    }
+
+                    const waveAmplitude = 0.8;
+                    const waveFrequency = 6;
+                    const wave = Math.sin((i / ringSegments) * Math.PI * 2 * waveFrequency + performance.now() * 0.002);
+                    const waveFactor = 1.0 + waveAmplitude * wave;
+
+                    const scaleY = (1.0 + intensity * 3.5) * waveFactor;
+                    const scaleX = 1.0 + intensity * 0.8;
+                    const scaleZ = 1.0 + intensity * 2;
+
+                    segment.scale.set(scaleX, scaleY, scaleZ);
+                    segment.position.y = (scaleY - 1) * 0.5;
+
+                    // Blue to Purple to Cyan gradient
+                    const blue = new THREE.Color(0x0000ff);
+                    const purple = new THREE.Color(0x8000ff);
+                    const cyan = new THREE.Color(0x00ffff);
+
+                    let color: THREE.Color;
+
+                    if (intensity <= 1 / 3) {
+                        const t = intensity / (1 / 3);
+                        color = blue.clone().lerp(purple, t);
+                    } else if (intensity <= 2 / 3) {
+                        const t = (intensity - 1 / 3) / (1 / 3);
+                        color = purple.clone().lerp(cyan, t);
+                    } else {
+                        const t = (intensity - 2 / 3) / (1 / 3);
+                        color = cyan.clone().lerp(blue, t);
+                    }
+
+                    const mat = segment.material as THREE.MeshStandardMaterial;
+                    mat.color = color;
+                    mat.emissive = color;
+                    mat.emissiveIntensity = 0.15 + intensity * 1.2;
                 }
 
             }
@@ -192,9 +318,8 @@ export default function SaturnScene() {
         audioManager.initializeAudio();
 
         const setUpAudio = async () => {
-            // audioManager.registerAudio("song1", "/audios/song.m4a");
-            audioManager.registerAudio("song1", "/audios/song4.mp3");
-            await audioManager.loadAudio("song1");
+            audioManager.registerAudio("Higher Standards", "/audios/test/Higher_Standards_Vocal.m4a", "/audios/test/Higher_Standards_Instrumental.m4a");
+            await audioManager.loadAudio("Higher Standards");
             audioManager.setVolume(0.1);
         };
 
