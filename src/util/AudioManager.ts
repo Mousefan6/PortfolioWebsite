@@ -68,18 +68,6 @@ export class AudioManager {
             this.gainNode.gain.value = 0.5;
             this.gainNode.connect(this.context.destination);
 
-            // this.analyser = this.context.createAnalyser();
-            // this.analyser.fftSize = 32768;
-            // this.analyser.smoothingTimeConstant = 0.8;
-
-            // const bufferLength = this.analyser.frequencyBinCount;
-            // this.frequencyData = new Float32Array(bufferLength);
-
-            // this.gainNode = this.context.createGain();
-            // this.gainNode.gain.value = 0.5;
-
-            // this.gainNode.connect(this.context.destination);
-
             this.initialized = true;
             console.log("Audio Manager initialized!");
             return true;

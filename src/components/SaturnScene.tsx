@@ -89,7 +89,7 @@ export default function SaturnScene() {
             );
 
             const material = new THREE.MeshStandardMaterial({
-                color: 0xffbb88,
+                color: 0x0000ff,
                 transparent: true,
                 opacity: 0.8
             });
@@ -134,7 +134,7 @@ export default function SaturnScene() {
             );
 
             const material = new THREE.MeshStandardMaterial({
-                color: 0x88bbff,
+                color: 0x0000ff,
                 transparent: true,
                 opacity: 0.5
             });
@@ -318,8 +318,10 @@ export default function SaturnScene() {
         audioManager.initializeAudio();
 
         const setUpAudio = async () => {
-            audioManager.registerAudio("Higher Standards", "/audios/test/Higher_Standards_Vocal.m4a", "/audios/test/Higher_Standards_Instrumental.m4a");
-            await audioManager.loadAudio("Higher Standards");
+            // audioManager.registerAudio("Higher Standards", "/audios/test/Higher_Standards_Vocal.m4a", "/audios/test/Higher_Standards_Instrumental.m4a");
+            // await audioManager.loadAudio("Higher Standards");
+            audioManager.registerAudio("song3", "/audios/song3/song3_Vocal.m4a", "/audios/song3/song3_Instrumental.m4a");
+            await audioManager.loadAudio("song3");
             audioManager.setVolume(0.1);
         };
 
