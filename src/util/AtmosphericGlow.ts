@@ -13,7 +13,7 @@
 
 import * as THREE from "three";
 
-export function createAtmosphereMaterial() {
+export function createAtmosphereMaterial(atmosphereColor: THREE.Color) {
     const vertexShader = `
         varying vec3 vertexWorldPosition;
         varying vec3 vertexNormal;
@@ -50,7 +50,7 @@ export function createAtmosphereMaterial() {
 
     const material = new THREE.ShaderMaterial({
         uniforms: {
-            glowColor: { value: new THREE.Color(0xC154C1) },
+            glowColor: { value: atmosphereColor },
             coefficient: { value: 0.1 },
             power: { value: 3.0 },
             intensity: { value: 0.8 }

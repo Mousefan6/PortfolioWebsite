@@ -81,6 +81,7 @@ export default function SaturnScene() {
             }),
 
             hasAtmosphericGlow: true,
+            atmosphereColor: new THREE.Color(0x0000ff),
 
             position: new THREE.Vector3(-60, 0, 0)
         });
@@ -88,7 +89,7 @@ export default function SaturnScene() {
         scene.add(saturn.group);
 
         const saturnSmall = createRingPlanet({
-            planetTexture: 'models/Planet.png',
+            planetTexture: 'models/saturn.JPEG',
             radius: 20,
             width: 128,
             height: 128,
@@ -103,14 +104,15 @@ export default function SaturnScene() {
             innerRingTilt: new THREE.Vector3(0, 0, 3),
 
             ringMaterial: new THREE.MeshStandardMaterial({
-                color: 0x0000ff,
+                color: 0xffff00,
                 transparent: true,
                 opacity: 0.8
             }),
 
             hasAtmosphericGlow: true,
+            atmosphereColor: new THREE.Color(0xffff00),
 
-            position: new THREE.Vector3(60, 0, 0)
+            position: new THREE.Vector3(60, -20, 0)
         });
 
         scene.add(saturnSmall.group);
@@ -191,17 +193,21 @@ export default function SaturnScene() {
     useEffect(() => {
         audioManager.initializeAudio();
 
-        const setUpAudio = async () => {
+        let setUpComplete = false;
+        const setUpAudio = async (): Promise<boolean> => {
             // audioManager.registerAudio("Higher Standards", "/audios/test/Higher_Standards_Vocal.m4a", "/audios/test/Higher_Standards_Instrumental.m4a");
             // await audioManager.loadAudio("Higher Standards");
             audioManager.registerAudio("song3", "/audios/song2/song2_Vocal.m4a", "/audios/song2/song2_Instrumental.m4a");
             await audioManager.loadAudio("song3");
             audioManager.setVolume(0.1);
+            return true;
         };
 
-        setUpAudio();
-
         const unlockAudioContext = async () => {
+            if (!setUpComplete) {
+                return;
+            }
+
             if (audioManager.context?.state === "suspended") {
                 await audioManager.context.resume();
             }
@@ -213,8 +219,15 @@ export default function SaturnScene() {
             window.removeEventListener('click', unlockAudioContext);
         };
 
-        // Register a one-time click handler to unlock audio
-        window.addEventListener('click', unlockAudioContext);
+        // Audio setup
+        setUpAudio().then(success => {
+            setUpComplete = success;
+
+            // Register a one-time click handler to unlock audio
+            if (success) {
+                window.addEventListener('click', unlockAudioContext);
+            }
+        });
 
         return () => {
             window.removeEventListener('click', unlockAudioContext);

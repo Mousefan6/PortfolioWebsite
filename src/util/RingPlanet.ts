@@ -36,6 +36,7 @@ interface RingPlanetOptions {
     ringMaterial: THREE.MeshStandardMaterial;
 
     hasAtmosphericGlow: boolean;
+    atmosphereColor: THREE.Color;
 
     position: THREE.Vector3;
 }
@@ -77,6 +78,7 @@ export function createRingPlanet(options: RingPlanetOptions): {
         outerRingTilt = null,
         ringMaterial,
         hasAtmosphericGlow,
+        atmosphereColor,
         position
     } = options;
 
@@ -182,7 +184,7 @@ export function createRingPlanet(options: RingPlanetOptions): {
 
     // Optional glow
     if (hasAtmosphericGlow) {
-        const atmosphereMaterial = createAtmosphereMaterial();
+        const atmosphereMaterial = createAtmosphereMaterial(atmosphereColor);
         const atmosphere = createAtmosphereGlow(
             radius + 0.3,
             numSegments,
