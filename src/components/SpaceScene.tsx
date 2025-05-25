@@ -80,9 +80,6 @@ export default function SaturnScene() {
                 opacity: 0.8
             }),
 
-            hasAtmosphericGlow: true,
-            atmosphereColor: new THREE.Color(0x0000ff),
-
             position: new THREE.Vector3(-60, 0, 0)
         });
 
@@ -109,13 +106,19 @@ export default function SaturnScene() {
                 opacity: 0.8
             }),
 
-            hasAtmosphericGlow: true,
-            atmosphereColor: new THREE.Color(0xffff00),
-
             position: new THREE.Vector3(60, -20, 0)
         });
 
         scene.add(saturnSmall.group);
+
+        const sunGeometry = new THREE.SphereGeometry(40, 32, 32);
+        const sunMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffcc00,
+        });
+        const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+        sun.position.set(70, 50, 400);
+
+        scene.add(sun);
 
         // Animation Loop that operates celestial object's movement, 
         // camera, and audio visualization on the ring
@@ -124,6 +127,21 @@ export default function SaturnScene() {
             requestAnimationFrame(animate);
             controls.update();
             renderer.render(scene, camera);
+
+            scene.traverse(obj => {
+                if (obj.name === 'atmosphereGlow' && obj instanceof THREE.Mesh && obj.material instanceof THREE.ShaderMaterial) {
+                    const mat = obj.material;
+                    const light = scene.getObjectByName('SunLight') as THREE.Light;
+
+                    if (light && mat.uniforms.lightSourcePos) {
+                        mat.uniforms.lightSourcePos.value.copy(light.position);
+                    }
+
+                    if (mat.uniforms.camPos) {
+                        mat.uniforms.camPos.value.copy(camera.position);
+                    }
+                }
+            });
 
             // Saturn object rotations
             saturn.ringParent.rotation.y += 0.005;
@@ -190,7 +208,7 @@ export default function SaturnScene() {
         };
     }, []);
 
-    useEffect(() => {        
+    useEffect(() => {
         audioManager.initializeAudio();
 
         const playlist = [

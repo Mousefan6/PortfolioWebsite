@@ -13,47 +13,37 @@
 
 import * as THREE from "three";
 
-export function createAtmosphereMaterial(atmosphereColor: THREE.Color) {
+export function createAtmosphereMaterial() {
     const vertexShader = `
-        varying vec3 vertexWorldPosition;
-        varying vec3 vertexNormal;
-        
+        varying float intensity;
+        uniform vec3 lightSourcePos;
+        uniform vec3 camPos;
         void main() {
-            vertexWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
-            vertexNormal = normalize(normalMatrix * normal);
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            vec3 vNormal = normalize( normalMatrix * normal );
+            vec4 viewLightPos = modelViewMatrix * vec4(lightSourcePos, 1.0);
+            vec4 viewCamPos = viewMatrix * vec4(camPos, 1.0);
+            vec4 vViewPosition4 = modelViewMatrix * vec4(position, 1.0);
+            vec3 camPosToVertexDir = normalize(viewCamPos.xyz - vViewPosition4.xyz);
+            vec3 lightDir = normalize(viewLightPos.xyz - vViewPosition4.xyz);
+            float lightsourceIntensity = clamp(dot(lightDir, vNormal) + 1.0, 0.0, 1.0);
+            intensity = pow( 0.7 - dot(vNormal, camPosToVertexDir), 12.0 ) * lightsourceIntensity;
+            gl_Position = projectionMatrix * vViewPosition4;
+            vec3 vPosition = gl_Position.xyz;
         }
     `;
 
     const fragmentShader = `
-        uniform vec3 glowColor;
-        uniform float coefficient;
-        uniform float power;
-        uniform float intensity;
-        varying vec3 vertexWorldPosition;
-        varying vec3 vertexNormal;
-        
+        varying float intensity;
         void main() {
-            vec3 worldCameraPosition = cameraPosition;
-            vec3 viewDirection = normalize(vertexWorldPosition - worldCameraPosition);
-            
-            // Use the actual surface normal for better glow effect
-            float fresnel = coefficient + dot(vertexNormal, viewDirection);
-            fresnel = pow(abs(fresnel), power);
-            
-            // Make the glow more pronounced and controllable
-            float glowIntensity = fresnel * intensity;
-            
-            gl_FragColor = vec4(glowColor, glowIntensity);
+            vec3 glow = vec3(0.3, 0.6, 1.0) * intensity * 0.3;
+            gl_FragColor = vec4( glow, 1.0 );
         }
     `;
 
     const material = new THREE.ShaderMaterial({
         uniforms: {
-            glowColor: { value: atmosphereColor },
-            coefficient: { value: 0.1 },
-            power: { value: 3.0 },
-            intensity: { value: 0.8 }
+            lightSourcePos: { value: new THREE.Vector3() },
+            camPos: { value: new THREE.Vector3() }
         },
         vertexShader,
         fragmentShader,

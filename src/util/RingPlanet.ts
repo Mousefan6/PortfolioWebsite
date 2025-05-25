@@ -35,9 +35,6 @@ interface RingPlanetOptions {
 
     ringMaterial: THREE.MeshStandardMaterial;
 
-    hasAtmosphericGlow: boolean;
-    atmosphereColor: THREE.Color;
-
     position: THREE.Vector3;
 }
 
@@ -77,8 +74,6 @@ export function createRingPlanet(options: RingPlanetOptions): {
         innerRingTilt,
         outerRingTilt = null,
         ringMaterial,
-        hasAtmosphericGlow,
-        atmosphereColor,
         position
     } = options;
 
@@ -182,17 +177,15 @@ export function createRingPlanet(options: RingPlanetOptions): {
         group.add(outerRingParent);
     }
 
-    // Optional glow
-    if (hasAtmosphericGlow) {
-        const atmosphereMaterial = createAtmosphereMaterial(atmosphereColor);
-        const atmosphere = createAtmosphereGlow(
-            radius + 0.3,
-            numSegments,
-            numSegments,
-            atmosphereMaterial
-        );
-        group.add(atmosphere);
-    }
+    // Create light dynamic atmospheric glow
+    const atmosphereMaterial = createAtmosphereMaterial();
+    const atmosphereMesh = createAtmosphereGlow(radius * 1.05, width, height, atmosphereMaterial);
+    atmosphereMesh.name = "atmosphereGlow";
+
+    // Position and parent correctly
+    atmosphereMesh.position.copy(planet.position);
+    group.add(atmosphereMesh);
+    group.userData.atmosphereMaterial = atmosphereMesh;
 
     return {
         group,
