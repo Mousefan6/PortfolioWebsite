@@ -27,12 +27,18 @@ export class AudioManager {
     public initialized: boolean;
     public playing: boolean;
     public muted: boolean;
+    public paused: boolean;
 
     // Audio settings
     public currentSong: string | null;
     public autoplay: boolean;
 
     importedSounds: Map<string, [string, string]>;
+
+    // Ring queue audio player variables
+    private queue: { name: string, vocal: string, instrumental: string }[] = [];
+    private currentIndex: number = -1; // -1 for initial state
+    private onEndedHandler: (() => void) | null = null;
 
     constructor() {
         // Audio handlers
@@ -53,6 +59,7 @@ export class AudioManager {
         this.initialized = false;
         this.playing = false;
         this.muted = false;
+        this.paused = false;
 
         // Audio settings
         this.currentSong = null;
@@ -99,25 +106,6 @@ export class AudioManager {
     }
 
     /**
-     * Registers multiple audio files
-     * 
-     * @param audios An array of tuples containing the name and tuple of files vocal
-     *               and instrumental of each audio file.
-     * 
-     * Example:
-     * audioManager.registerAudios([
-     *     ["song1", ["/audio/vocals1.mp3", "/audio/instrumental1.mp3"]],
-     *     ["song2", ["/audio/vocals2.mp3", "/audio/instrumental2.mp3"]],
-     * ]);
-     *
-     */
-    public registerAudios(audios: [string, [string, string]][]): void {
-        audios.forEach(([name, [fileUrlVocal, fileUrlInstrumental]]) => {
-            this.registerAudio(name, fileUrlVocal, fileUrlInstrumental);
-        });
-    }
-
-    /**
      * Loads a audio file for playing
      * 
      * @param name The registered audio's name.
@@ -155,7 +143,7 @@ export class AudioManager {
     }
 
     // Play the vocal and instrumental audio at the same time
-    public play(): void {
+    private play(): void {
         this.stop();
 
         if (!this.context || !this.vocalBuffer || !this.instrumentalBuffer || !this.gainNode) {
@@ -212,16 +200,17 @@ export class AudioManager {
         }
     }
 
-    // Stops the audio
+    // Stops and terminate the audio
     public stop(): void {
         if (this.vocalSource) {
-            this.vocalSource.stop();
+            this.vocalSource.onended = null;
+            this.vocalSource.stop(0);
             this.vocalSource.disconnect();
             this.vocalSource = null;
         }
 
         if (this.instrumentalSource) {
-            this.instrumentalSource.stop();
+            this.instrumentalSource.stop(0);
             this.instrumentalSource.disconnect();
             this.instrumentalSource = null;
         }
@@ -244,12 +233,23 @@ export class AudioManager {
     /**
      * Set the volume of the audio
      * 
-     * @param value The value to set the volume to.
+     * @param value The value to set the volume to. Range: [0, 1]
      */
     public setVolume(value: number): void {
+        if (value < 0) value = 0;
+        if (value > 1) value = 1;
+
         if (this.gainNode) {
             this.gainNode.gain.value = value;
         }
+    }
+
+    // Get the current volume of the audio. Range: [0, 100]
+    public getVolume(): number {
+        if (this.gainNode) {
+            return this.gainNode.gain.value * 100;
+        }
+        return 0;
     }
 
     /**
@@ -296,7 +296,7 @@ export class AudioManager {
         if (vocalReady) this.vocalAnalyser!.getFloatFrequencyData(this.vocalData);
         if (instrReady) this.instrumentalAnalyser!.getFloatFrequencyData(this.instrumentalData);
 
-        // If both voca and instrumental are available then merge
+        // If both vocal and instrumental are available then merge
         if (vocalReady && instrReady) {
             const len = Math.min(this.vocalData.length, this.instrumentalData.length);
             const merged = new Float32Array(len);
@@ -316,7 +316,128 @@ export class AudioManager {
         return new Float32Array(); // safe fallback
     }
 
-    // TODO: Add more methods for other features later
+    /**
+     * Registers multiple audio files as a playlist
+     * 
+     * @param songs An array of tuples containing the name and tuple of files vocal
+     *               and instrumental of each audio file.
+     * 
+     * Example:
+     * const playlist = [
+     *     {
+     *         name: "song1",
+     *         vocal: "/audios/song1/song1_Vocal.m4a",
+     *         instrumental: "/audios/song1/song1_Instrumental.m4a"
+     *     },
+     *     {
+     *         name: "song2",
+     *         vocal: "/audios/song2/song2_Vocal.m4a",
+     *         instrumental: "/audios/song2/song2_Instrumental.m4a"
+     *     },
+     *     {
+     *         name: "song3",
+     *         vocal: "/audios/song3/song3_Vocal.m4a",
+     *          instrumental: "/audios/song3/song3_Instrumental.m4a"
+     *     }
+     * ];
+     *
+     */
+    public registerPlaylist(songs: { name: string, vocal: string, instrumental: string }[]) {
+        this.queue = songs;
+        this.currentIndex = -1; // -1 for initial state (auto incremented by playNext)
+    }
+
+    // Play the next song in the playlist
+    public async playNext() {
+        if (this.queue.length === 0) {
+            return;
+        }
+
+        this.stop();
+
+        // Disconnect the on ended handler
+        if (this.vocalSource) {
+            this.vocalSource.onended = null;
+        }
+
+        // Increment to the next song index
+        this.currentIndex = (this.currentIndex + 1) % this.queue.length;
+
+        // Play the song at the current index
+        const song = this.queue[this.currentIndex];
+        this.registerAudio(song.name, song.vocal, song.instrumental);
+        await this.loadAudio(song.name);
+        this.play();
+
+        // If context was paused, resume it
+        if (this.context && this.context.state === "suspended") {
+            await this.context.resume();
+            this.paused = false;
+        }
+
+        if (this.vocalSource && this.onEndedHandler) {
+            this.vocalSource.onended = this.onEndedHandler;
+        }
+    }
+
+    // Play the previous song in the playlist
+    public async playPrevious() {
+        if (this.queue.length === 0) {
+            return;
+        }
+
+        this.stop();
+
+        // Disconnect the on ended handler
+        if (this.vocalSource) {
+            this.vocalSource.onended = null;
+        }
+
+        // Decrement to the previous song index
+        this.currentIndex = (this.currentIndex - 1 + this.queue.length) % this.queue.length;
+
+        // Play the song at the new index
+        const song = this.queue[this.currentIndex];
+        this.registerAudio(song.name, song.vocal, song.instrumental);
+        await this.loadAudio(song.name);
+        this.play();
+        
+        // If context was paused, resume it
+        if (this.context && this.context.state === "suspended") {
+            await this.context.resume();
+            this.paused = false;
+        }
+
+        if (this.vocalSource && this.onEndedHandler) {
+            this.vocalSource.onended = this.onEndedHandler;
+        }
+    }
+
+    // Set the on ended playlist handler to queue the playlist again
+    public setOnEndedHandler(handler: () => void) {
+        this.onEndedHandler = handler;
+        if (this.vocalSource) {
+            this.vocalSource.onended = handler;
+        }
+    }
+
+    // Suspend the audio context
+    public async pause() {
+        if (this.context && this.context.state === "running") {
+            await this.context.suspend();
+            this.paused = true;
+            this.playing = false;
+        }
+    }
+
+    // Resume the audio context
+    public async resume() {
+        if (this.context && this.context.state === "suspended") {
+            await this.context.resume();
+            this.paused = false;
+            this.playing = true;
+        }
+    }
 }
 
 export const audioManager = new AudioManager();

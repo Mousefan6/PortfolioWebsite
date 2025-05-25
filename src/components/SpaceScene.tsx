@@ -190,47 +190,42 @@ export default function SaturnScene() {
         };
     }, []);
 
-    useEffect(() => {
+    useEffect(() => {        
         audioManager.initializeAudio();
 
-        let setUpComplete = false;
-        const setUpAudio = async (): Promise<boolean> => {
-            // audioManager.registerAudio("Higher Standards", "/audios/test/Higher_Standards_Vocal.m4a", "/audios/test/Higher_Standards_Instrumental.m4a");
-            // await audioManager.loadAudio("Higher Standards");
-            audioManager.registerAudio("song3", "/audios/song2/song2_Vocal.m4a", "/audios/song2/song2_Instrumental.m4a");
-            await audioManager.loadAudio("song3");
+        const playlist = [
+            {
+                name: "song1",
+                vocal: "/audios/song1/song1_Vocal.m4a",
+                instrumental: "/audios/song1/song1_Instrumental.m4a"
+            },
+            {
+                name: "song2",
+                vocal: "/audios/song2/song2_Vocal.m4a",
+                instrumental: "/audios/song2/song2_Instrumental.m4a"
+            },
+            {
+                name: "song3",
+                vocal: "/audios/song3/song3_Vocal.m4a",
+                instrumental: "/audios/song3/song3_Instrumental.m4a"
+            }
+        ];
+
+        const setUpAudio = async () => {
+            audioManager.registerPlaylist(playlist);
+
+            await audioManager.playNext();
             audioManager.setVolume(0.1);
-            return true;
+
+            // Play next when current ends
+            audioManager.setOnEndedHandler(async () => {
+                await audioManager.playNext();
+            });
         };
 
-        const unlockAudioContext = async () => {
-            if (!setUpComplete) {
-                return;
-            }
-
-            if (audioManager.context?.state === "suspended") {
-                await audioManager.context.resume();
-            }
-
-            if (!audioManager.playing) {
-                audioManager.play();
-            }
-
-            window.removeEventListener('click', unlockAudioContext);
-        };
-
-        // Audio setup
-        setUpAudio().then(success => {
-            setUpComplete = success;
-
-            // Register a one-time click handler to unlock audio
-            if (success) {
-                window.addEventListener('click', unlockAudioContext);
-            }
-        });
+        setUpAudio();
 
         return () => {
-            window.removeEventListener('click', unlockAudioContext);
             audioManager.stop();
         };
     }, []);
