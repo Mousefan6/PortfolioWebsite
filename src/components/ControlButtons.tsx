@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 
-import { audioManager } from '../util/AudioManager';
+import { useAudioPlayer } from '../hooks/AudioProvider';
 
 import PlayIcon from '/assets/Play.png';
 import PauseIcon from '/assets/Pause.png';
@@ -11,6 +11,8 @@ import MusicBack from '/assets/GoBackward.png';
 import MusicSkip from '/assets/SkipForward.png';
 
 const ControlButtons = () => {
+    const { isReady, audioManager } = useAudioPlayer();
+
     const [isPlaying, setIsPlaying] = useState(true);
     const [volume, setVolume] = useState(10); // Volume from 0-100
     const [showVolumeSlider, setShowVolumeSlider] = useState(false);
@@ -62,6 +64,7 @@ const ControlButtons = () => {
             {/* Back button for songs*/}
             <button
                 onClick={skipBackward}
+                disabled={!isReady}
                 className="hover:opacity-80 transition-opacity"
             >
                 <img src={MusicBack} alt="Skip Backward" className="w-6 h-6" />
@@ -70,6 +73,7 @@ const ControlButtons = () => {
             {/* Play button */}
             <button
                 onClick={togglePlay}
+                disabled={!isReady}
                 className="hover:opacity-80 transition-opacity"
             >
                 <img
@@ -82,6 +86,7 @@ const ControlButtons = () => {
             {/* Skip Forward Button */}
             <button
                 onClick={skipForward}
+                disabled={!isReady}
                 className="hover:opacity-80 transition-opacity"
             >
                 <img src={MusicSkip} alt="Skip Forward" className="w-6 h-6" />
@@ -91,6 +96,7 @@ const ControlButtons = () => {
             <div className="relative flex items-center gap-2">
                 <button
                     onMouseEnter={() => setShowVolumeSlider(true)}
+                    disabled={!isReady}
                     onClick={() => {
                         if (isMuted) {
                             // Unmute: restore previous volume
@@ -110,7 +116,6 @@ const ControlButtons = () => {
                     {getVolumeIcon()}
                 </button>
 
-
                 {/* Volume Slider */}
                 {showVolumeSlider && (
                     <div
@@ -120,6 +125,7 @@ const ControlButtons = () => {
                         <div className="flex items-center gap-3">
                             <input
                                 type="range"
+                                disabled={!isReady}
                                 min="0"
                                 max="100"
                                 value={volume}

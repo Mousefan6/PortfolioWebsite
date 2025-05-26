@@ -1,6 +1,7 @@
 // Package imports
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { gsap } from "gsap";
 
 // Three.js function imports
 import WEBGL from 'three/examples/jsm/capabilities/WebGL';
@@ -8,12 +9,14 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 // Custom function imports
 import { setUpBackground, createStars } from '../util/Background';
-import { audioManager } from '../util/AudioManager';
+import { useAudioPlayer } from '../hooks/AudioProvider';
 
 import { createRingPlanet, animateOneRingAudio, animateTwoRingAudio } from '../util/RingPlanet';
 
 export default function SaturnScene() {
     const mountRef = useRef<HTMLCanvasElement>(null);
+
+    const { audioManager } = useAudioPlayer();
 
     useEffect(() => {
         if (!WEBGL.isWebGL2Available()) {
@@ -56,6 +59,7 @@ export default function SaturnScene() {
         controls.dampingFactor = 0.05;
 
         const saturn = createRingPlanet({
+            name: "Saturn",
             planetTexture: 'models/Planet.png',
             radius: 20,
             width: 128,
@@ -85,7 +89,8 @@ export default function SaturnScene() {
 
         scene.add(saturn.group);
 
-        const saturnSmall = createRingPlanet({
+        const moon = createRingPlanet({
+            name: "Moon",
             planetTexture: 'models/saturn.JPEG',
             radius: 20,
             width: 128,
@@ -109,7 +114,34 @@ export default function SaturnScene() {
             position: new THREE.Vector3(60, -20, 0)
         });
 
-        scene.add(saturnSmall.group);
+        scene.add(moon.group);
+
+        const moon2 = createRingPlanet({
+            name: "Moon2",
+            planetTexture: 'models/AsteroidTexture.JPEG',
+            radius: 10,
+            width: 64,
+            height: 64,
+
+            numSegments: 512,
+            segmentDepth: 12,
+            segmentHeight: 0.5,
+
+            innerRingInnerRadius: 30,
+            innerRingOuterRadius: 40,
+
+            innerRingTilt: new THREE.Vector3(5, 0, 0),
+
+            ringMaterial: new THREE.MeshStandardMaterial({
+                color: 0xffff00,
+                transparent: true,
+                opacity: 0.8
+            }),
+
+            position: new THREE.Vector3(-60, -20, 180)
+        });
+
+        scene.add(moon2.group);
 
         const sunGeometry = new THREE.SphereGeometry(40, 32, 32);
         const sunMaterial = new THREE.MeshBasicMaterial({
@@ -117,8 +149,74 @@ export default function SaturnScene() {
         });
         const sun = new THREE.Mesh(sunGeometry, sunMaterial);
         sun.position.set(70, 50, 400);
+        sun.name = "Sun";
 
         scene.add(sun);
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        const clickableObjects = [saturn.planet, moon.planet, moon2.planet, sun];
+
+        const onClick = (event: MouseEvent) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(clickableObjects, true);
+
+            if (intersects.length > 0) {
+                const targetObject = intersects[0].object;
+
+                const targetWorldPos = new THREE.Vector3();
+                targetObject.getWorldPosition(targetWorldPos);
+
+                const targetMesh = targetObject as THREE.Mesh;
+                const geometry = targetMesh.geometry as THREE.SphereGeometry;
+
+                const radius = geometry.parameters.radius;
+
+                const targetPos = new THREE.Vector3(
+                    targetWorldPos.x + radius / 4,
+                    targetWorldPos.y + radius + 1,
+                    targetWorldPos.z
+                );
+
+                // controls.enabled = false;
+
+                gsap.to(camera.position, {
+                    x: targetPos.x,
+                    y: targetPos.y,
+                    z: targetPos.z,
+                    duration: 2,
+                    ease: "power2.inOut",
+
+                    onComplete: () => {
+                        switch (targetObject.name) {
+                            case 'Sun':
+                                controls.target.copy(saturn.planet.position);
+                                camera.lookAt(saturn.planet.position);
+                                break;
+                            case 'Moon':
+                                controls.target.copy(saturn.planet.position);
+                                camera.lookAt(saturn.planet.position);
+                                break;
+                            case 'Moon2':
+                                controls.target.copy(saturn.planet.position);
+                                camera.lookAt(saturn.planet.position);
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                });
+
+            }
+
+        };
+
+
+        window.addEventListener("click", onClick);
 
         // Animation Loop that operates celestial object's movement, 
         // camera, and audio visualization on the ring
@@ -149,14 +247,14 @@ export default function SaturnScene() {
                 saturn.outerRingParent.rotation.y += 0.0025;
             }
 
-            // Saturn Small object rotations
-            saturnSmall.ringParent.rotation.y += 0.005;
-            if (saturnSmall.outerRingParent) {
-                saturnSmall.outerRingParent.rotation.y += 0.0025;
-            }
+            // Moon object rotations
+            moon.ringParent.rotation.y += 0.005;
 
-            // Saturn ring audio visualization
+            // Moon2 object rotations
+            moon2.ringParent.rotation.y += 0.005;
+
             if (audioManager.vocalAnalyser && audioManager.instrumentalAnalyser && audioManager.playing) {
+                // Saturn ring audio visualization
                 animateTwoRingAudio(
                     saturn.ringSegmentsArray,
                     saturn.outerRingSegmentsArray!,
@@ -169,12 +267,25 @@ export default function SaturnScene() {
                         outerWaveFrequency: 6
                     }
                 );
-            }
-
-            // Saturn Small ring audio visualization
-            if (audioManager.vocalAnalyser && audioManager.instrumentalAnalyser && audioManager.playing) {
+                
+                // Moon ring audio visualization
                 animateOneRingAudio(
-                    saturnSmall.ringSegmentsArray,
+                    moon.ringSegmentsArray,
+                    audioManager.getAudioData(),
+                    {
+                        innerWaveAmplitude: 0.5,
+                        innerWaveFrequency: 8,
+                        gradientColors: [
+                            new THREE.Color(0xffff00), // yellow
+                            new THREE.Color(0xffa500), // orange
+                            new THREE.Color(0xff0000)  // red
+                        ]
+                    }
+                )
+
+                // Moon ring audio visualization
+                animateOneRingAudio(
+                    moon2.ringSegmentsArray,
                     audioManager.getAudioData(),
                     {
                         innerWaveAmplitude: 0.5,
@@ -203,48 +314,9 @@ export default function SaturnScene() {
         // Cleanup resources on unmount
         return () => {
             window.removeEventListener('resize', handleResize);
+            window.removeEventListener("click", onClick);
             renderer.dispose();
             scene.clear();
-        };
-    }, []);
-
-    useEffect(() => {
-        audioManager.initializeAudio();
-
-        const playlist = [
-            {
-                name: "song1",
-                vocal: "/audios/song1/song1_Vocal.m4a",
-                instrumental: "/audios/song1/song1_Instrumental.m4a"
-            },
-            {
-                name: "song2",
-                vocal: "/audios/song2/song2_Vocal.m4a",
-                instrumental: "/audios/song2/song2_Instrumental.m4a"
-            },
-            {
-                name: "song3",
-                vocal: "/audios/song3/song3_Vocal.m4a",
-                instrumental: "/audios/song3/song3_Instrumental.m4a"
-            }
-        ];
-
-        const setUpAudio = async () => {
-            audioManager.registerPlaylist(playlist);
-
-            await audioManager.playNext();
-            audioManager.setVolume(0.1);
-
-            // Play next when current ends
-            audioManager.setOnEndedHandler(async () => {
-                await audioManager.playNext();
-            });
-        };
-
-        setUpAudio();
-
-        return () => {
-            audioManager.stop();
         };
     }, []);
 

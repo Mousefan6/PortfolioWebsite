@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { createAtmosphereMaterial, createAtmosphereGlow } from '../util/AtmosphericGlow';
 
 interface RingPlanetOptions {
+    name: string;
     planetTexture: string;
     radius: number;
     width: number;
@@ -60,6 +61,7 @@ export function createRingPlanet(options: RingPlanetOptions): {
     outerRingSegmentsArray?: THREE.Mesh[];
 } {
     const {
+        name,
         planetTexture,
         radius,
         width,
@@ -86,6 +88,7 @@ export function createRingPlanet(options: RingPlanetOptions): {
         new THREE.SphereGeometry(radius, width, height),
         new THREE.MeshStandardMaterial({ map: texture })
     );
+    planet.name = name;
     group.add(planet);
 
     // Instantiate Inner Ring objectts
