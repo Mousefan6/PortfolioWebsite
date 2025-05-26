@@ -1,7 +1,6 @@
 // Package imports
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { gsap } from "gsap";
 
 // Three.js function imports
 import WEBGL from 'three/examples/jsm/capabilities/WebGL';
@@ -10,8 +9,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 // Custom function imports
 import { setUpBackground, createStars } from '../util/Background';
 import { useAudioPlayer } from '../hooks/AudioProvider';
-
 import { createRingPlanet, animateOneRingAudio, animateTwoRingAudio } from '../util/RingPlanet';
+import { handlePlanetClick } from '../util/handlePlanetClick';
 
 export default function SaturnScene() {
     const mountRef = useRef<HTMLCanvasElement>(null);
@@ -26,6 +25,10 @@ export default function SaturnScene() {
                 '</div>';
             return;
         }
+
+        // ============================================================================================= //
+        // Initialization and Setup
+        // ============================================================================================= //
 
         // Scene Setup
         const scene = new THREE.Scene();
@@ -57,6 +60,10 @@ export default function SaturnScene() {
         // controls.maxDistance = 100;
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
+
+        // ============================================================================================= //
+        // Create celestial bodies
+        // ============================================================================================= //
 
         const saturn = createRingPlanet({
             name: "Saturn",
@@ -155,6 +162,10 @@ export default function SaturnScene() {
 
         scene.add(moon2.group);
 
+        // ============================================================================================= //
+        // Create the sun (unique object)
+        // ============================================================================================= //
+
         const sunGeometry = new THREE.SphereGeometry(40, 32, 32);
         const sunMaterial = new THREE.MeshBasicMaterial({
             color: 0xffcc00,
@@ -165,73 +176,26 @@ export default function SaturnScene() {
 
         scene.add(sun);
 
+        // ============================================================================================= //
+        // Cinematic camera focusing on celestial body's surface 
+        // ============================================================================================= //
+
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
 
         const clickableObjects = [saturn.planet, moon.planet, moon2.planet, sun];
 
-        const onClick = (event: MouseEvent) => {
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(clickableObjects, true);
-
-            if (intersects.length > 0) {
-                const targetObject = intersects[0].object;
-
-                const targetWorldPos = new THREE.Vector3();
-                targetObject.getWorldPosition(targetWorldPos);
-
-                const targetMesh = targetObject as THREE.Mesh;
-                const geometry = targetMesh.geometry as THREE.SphereGeometry;
-
-                const radius = geometry.parameters.radius;
-
-                const targetPos = new THREE.Vector3(
-                    targetWorldPos.x + radius / 4,
-                    targetWorldPos.y + radius + 1,
-                    targetWorldPos.z
-                );
-
-                // controls.enabled = false;
-
-                gsap.to(camera.position, {
-                    x: targetPos.x,
-                    y: targetPos.y,
-                    z: targetPos.z,
-                    duration: 2,
-                    ease: "power2.inOut",
-
-                    onComplete: () => {
-                        switch (targetObject.name) {
-                            case 'Sun':
-                                controls.target.copy(saturn.planet.position);
-                                camera.lookAt(saturn.planet.position);
-                                break;
-                            case 'Moon':
-                                controls.target.copy(saturn.planet.position);
-                                camera.lookAt(saturn.planet.position);
-                                break;
-                            case 'Moon2':
-                                controls.target.copy(saturn.planet.position);
-                                camera.lookAt(saturn.planet.position);
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                });
-
-            }
-
+        const onCelestialBodyClick = (event: MouseEvent) => {
+            handlePlanetClick(event, camera, raycaster, mouse, clickableObjects);
         };
 
+        window.addEventListener("click", onCelestialBodyClick);
 
-        window.addEventListener("click", onClick);
+        // ============================================================================================= //
+        // Animation Loop that operates celestial object's movement, camera, 
+        // and audio visualization on the ring
+        // ============================================================================================= //
 
-        // Animation Loop that operates celestial object's movement, 
-        // camera, and audio visualization on the ring
         const animate = () => {
             // Camera and renderer updates
             requestAnimationFrame(animate);
@@ -279,7 +243,7 @@ export default function SaturnScene() {
                         outerWaveFrequency: 6
                     }
                 );
-                
+
                 // Moon ring audio visualization
                 animateOneRingAudio(
                     moon.ringSegmentsArray,
@@ -326,7 +290,7 @@ export default function SaturnScene() {
         // Cleanup resources on unmount
         return () => {
             window.removeEventListener('resize', handleResize);
-            window.removeEventListener("click", onClick);
+            window.removeEventListener("click", onCelestialBodyClick);
             renderer.dispose();
             scene.clear();
         };

@@ -1,3 +1,14 @@
+/**************************************************************
+* Author(s): Bryan Lee
+* Last Updated: 5/25/2025
+*
+* File:: AudioProvider.ts
+*
+* Description:: This file serves the global hook provider for the Audio Manager object
+*               and handles the initialization of it. Prevents double rendering.
+*
+**************************************************************/
+
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { audioManager } from '../util/AudioManager';
 
