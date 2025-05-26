@@ -10,6 +10,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { setUpBackground, createStars } from '../util/Background';
 import { useAudioPlayer } from '../hooks/AudioProvider';
 import { createRingPlanet, animateOneRingAudio, animateTwoRingAudio } from '../util/RingPlanet';
+import { createPlanet } from '../util/Planet';
 import { handlePlanetClick } from '../util/handlePlanetClick';
 
 export default function SaturnScene() {
@@ -162,6 +163,21 @@ export default function SaturnScene() {
 
         scene.add(moon2.group);
 
+        const planet = createPlanet({
+            planetTexture: 'models/Planet.png',
+            radius: 20,
+            width: 128,
+            height: 128,
+
+            hasAtmosphericGlow: true,
+            glowColor: new THREE.Color(0x6644ff),
+            glowIntensity: 1.2,
+
+            position: new THREE.Vector3(-180, 0, 0)
+        });
+
+        scene.add(planet.group);
+
         // ============================================================================================= //
         // Create the sun (unique object)
         // ============================================================================================= //
@@ -183,7 +199,7 @@ export default function SaturnScene() {
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
 
-        const clickableObjects = [saturn.planet, moon.planet, moon2.planet, sun];
+        const clickableObjects = [saturn.planet, moon.planet, moon2.planet, planet.planet, sun];
 
         const onCelestialBodyClick = (event: MouseEvent) => {
             handlePlanetClick(event, camera, raycaster, mouse, clickableObjects);

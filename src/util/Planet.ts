@@ -18,7 +18,10 @@ interface PlanetOptions {
     width: number;
     height: number;
 
-    hasAtmosphericGlow?: boolean;
+    // For atmosphere effects
+    hasAtmosphericGlow: boolean;
+    glowColor?: THREE.Color;
+    glowIntensity?: number;
 
     position: THREE.Vector3;
 }
@@ -33,6 +36,8 @@ export function createPlanet(options: PlanetOptions): {
         width,
         height,
         hasAtmosphericGlow,
+        glowColor = new THREE.Color(0x6644ff),
+        glowIntensity = 1.0,
         position
     } = options;
 
@@ -55,11 +60,11 @@ export function createPlanet(options: PlanetOptions): {
 
     // Optional glow
     if (hasAtmosphericGlow) {
-        const atmosphereMaterial = createAtmosphereMaterial();
+        const atmosphereMaterial = createAtmosphereMaterial(glowColor, glowIntensity);
         const atmosphere = createAtmosphereGlow(
             radius + 0.3,
-            radius,
-            radius,
+            width,
+            height,
             atmosphereMaterial
         );
         atmosphere.name = "atmosphereGlow";
@@ -67,10 +72,23 @@ export function createPlanet(options: PlanetOptions): {
 
         // Store it for later reference
         group.userData.atmosphereGlow = atmosphere;
+
+        // Create light dynamic atmospheric glow
+        const lightAtmosphereMaterial = createAtmosphereMaterial(
+            glowColor || new THREE.Color(0.3, 0.6, 1.0),
+            (glowIntensity || 1.0) * 0.3
+        );
+        const atmosphereMesh = createAtmosphereGlow(radius * 1.05, width, height, lightAtmosphereMaterial);
+        atmosphereMesh.name = "atmosphereGlow";
+
+        // Position and parent correctly
+        atmosphereMesh.position.copy(planet.position);
+        group.add(atmosphereMesh);
+        group.userData.atmosphereMaterial = atmosphereMesh;
     }
 
     return {
-        planet,
-        group
+        group,
+        planet
     };
 }

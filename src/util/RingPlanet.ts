@@ -208,20 +208,20 @@ export function createRingPlanet(options: RingPlanetOptions): {
 
         // Store it for later reference
         group.userData.atmosphereGlow = atmosphereGlow;
+
+        // Create light dynamic atmospheric glow
+        const lightAtmosphereMaterial = createAtmosphereMaterial(
+            glowColor || new THREE.Color(0.3, 0.6, 1.0),
+            (glowIntensity || 1.0) * 0.3
+        );
+        const atmosphereMesh = createAtmosphereGlow(radius * 1.05, width, height, lightAtmosphereMaterial);
+        atmosphereMesh.name = "atmosphereGlow";
+
+        // Position and parent correctly
+        atmosphereMesh.position.copy(planet.position);
+        group.add(atmosphereMesh);
+        group.userData.atmosphereMaterial = atmosphereMesh;
     }
-
-    // Create light dynamic atmospheric glow
-    const lightAtmosphereMaterial = createAtmosphereMaterial(
-        glowColor || new THREE.Color(0.3, 0.6, 1.0),
-        (glowIntensity || 1.0) * 0.3
-    );
-    const atmosphereMesh = createAtmosphereGlow(radius * 1.05, width, height, lightAtmosphereMaterial);
-    atmosphereMesh.name = "atmosphereGlow";
-
-    // Position and parent correctly
-    atmosphereMesh.position.copy(planet.position);
-    group.add(atmosphereMesh);
-    group.userData.atmosphereMaterial = atmosphereMesh;
 
     return {
         group,
