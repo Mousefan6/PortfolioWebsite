@@ -13,7 +13,7 @@
 
 import * as THREE from "three";
 
-export function createAtmosphereMaterial() {
+export function createAtmosphereMaterial(glowColor?: THREE.Color, glowIntensity?: number) {
     const vertexShader = `
         varying float intensity;
         uniform vec3 lightSourcePos;
@@ -34,8 +34,10 @@ export function createAtmosphereMaterial() {
 
     const fragmentShader = `
         varying float intensity;
+        uniform vec3 glowColor;
+        uniform float glowIntensity;
         void main() {
-            vec3 glow = vec3(0.3, 0.6, 1.0) * intensity * 0.3;
+            vec3 glow = glowColor * intensity * glowIntensity;
             gl_FragColor = vec4( glow, 1.0 );
         }
     `;
@@ -43,7 +45,9 @@ export function createAtmosphereMaterial() {
     const material = new THREE.ShaderMaterial({
         uniforms: {
             lightSourcePos: { value: new THREE.Vector3() },
-            camPos: { value: new THREE.Vector3() }
+            camPos: { value: new THREE.Vector3() },
+            glowColor: { value: glowColor || new THREE.Color(0.3, 0.6, 1.0) },
+            glowIntensity: { value: glowIntensity || 0.3 }
         },
         vertexShader,
         fragmentShader,
@@ -52,7 +56,6 @@ export function createAtmosphereMaterial() {
         side: THREE.BackSide,
         blending: THREE.AdditiveBlending
     });
-
     return material;
 }
 

@@ -4,13 +4,13 @@
 *
 * File:: Planet.ts
 *
-* Description:: This file handles the dynamic creation of a ring planet object.
+* Description:: This file handles the dynamic creation of a planet object.
 *
 **************************************************************/
 
 import * as THREE from 'three';
 
-// import { createAtmosphereMaterial, createAtmosphereGlow } from '../util/AtmosphericGlow';
+import { createAtmosphereMaterial, createAtmosphereGlow } from '../util/AtmosphericGlow';
 
 interface PlanetOptions {
     planetTexture: string;
@@ -18,9 +18,7 @@ interface PlanetOptions {
     width: number;
     height: number;
 
-    hasAtmosphericGlow: boolean;
-    // isSun?: boolean;
-    // emissiveIntensity?: number;
+    hasAtmosphericGlow?: boolean;
 
     position: THREE.Vector3;
 }
@@ -34,9 +32,7 @@ export function createPlanet(options: PlanetOptions): {
         radius,
         width,
         height,
-        // hasAtmosphericGlow,
-        // isSun = false,
-        // emissiveIntensity = 1.0,
+        hasAtmosphericGlow,
         position
     } = options;
 
@@ -58,45 +54,20 @@ export function createPlanet(options: PlanetOptions): {
     group.add(planet);
 
     // Optional glow
-    // if (hasAtmosphericGlow) {
-    //     const atmosphereMaterial = createAtmosphereMaterial();
-    //     const atmosphere = createAtmosphereGlow(
-    //         radius + 0.3,
-    //         radius,
-    //         radius,
-    //         atmosphereMaterial
-    //     );
-    //     atmosphere.name = "atmosphereGlow";
-    //     group.add(atmosphere);
+    if (hasAtmosphericGlow) {
+        const atmosphereMaterial = createAtmosphereMaterial();
+        const atmosphere = createAtmosphereGlow(
+            radius + 0.3,
+            radius,
+            radius,
+            atmosphereMaterial
+        );
+        atmosphere.name = "atmosphereGlow";
+        group.add(atmosphere);
 
-    //     // Store it for later reference
-    //     group.userData.atmosphereGlow = atmosphere;
-    // }
-
-    // // Optional glow for sun
-    // if (isSun) {
-    //     // Create an additional outer glow
-    //     const glowGeometry = new THREE.SphereGeometry(radius * 1.1, 32, 32);
-    //     const glowMaterial = new THREE.MeshBasicMaterial({
-    //         color: 0xffaa00,
-    //         transparent: true,
-    //         opacity: 0.5,
-    //         side: THREE.BackSide // Render from inside
-    //     });
-    //     const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-    //     group.add(glow);
-
-    //     // Add corona effect
-    //     const coronaGeometry = new THREE.SphereGeometry(radius * 1.2, 32, 32);
-    //     const coronaMaterial = new THREE.MeshBasicMaterial({
-    //         color: 0xffdd44,
-    //         transparent: true,
-    //         opacity: 0.3,
-    //         side: THREE.BackSide
-    //     });
-    //     const corona = new THREE.Mesh(coronaGeometry, coronaMaterial);
-    //     group.add(corona);
-    // }
+        // Store it for later reference
+        group.userData.atmosphereGlow = atmosphere;
+    }
 
     return {
         planet,

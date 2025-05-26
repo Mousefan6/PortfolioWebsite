@@ -36,6 +36,11 @@ interface RingPlanetOptions {
 
     ringMaterial: THREE.MeshStandardMaterial;
 
+    // For atmosphere effects
+    hasAtmosphericGlow: boolean;
+    glowColor?: THREE.Color;
+    glowIntensity?: number;
+
     position: THREE.Vector3;
 }
 
@@ -76,6 +81,9 @@ export function createRingPlanet(options: RingPlanetOptions): {
         innerRingTilt,
         outerRingTilt = null,
         ringMaterial,
+        hasAtmosphericGlow,
+        glowColor = new THREE.Color(0x6644ff),
+        glowIntensity = 1.0,
         position
     } = options;
 
@@ -86,7 +94,11 @@ export function createRingPlanet(options: RingPlanetOptions): {
     const texture = new THREE.TextureLoader().load(planetTexture);
     const planet = new THREE.Mesh(
         new THREE.SphereGeometry(radius, width, height),
-        new THREE.MeshStandardMaterial({ map: texture })
+        new THREE.MeshStandardMaterial({
+            map: texture,
+            roughness: 0.8,
+            metalness: 0.1
+        })
     );
     planet.name = name;
     group.add(planet);
@@ -180,9 +192,30 @@ export function createRingPlanet(options: RingPlanetOptions): {
         group.add(outerRingParent);
     }
 
+    let atmosphereGlow;
+
+    if (hasAtmosphericGlow) {
+        const atmosphereMaterial = createAtmosphereMaterial(glowColor, glowIntensity);
+
+        atmosphereGlow = createAtmosphereGlow(
+            radius + 0.3,
+            width,
+            height,
+            atmosphereMaterial
+        );
+        atmosphereGlow.name = "atmosphereGlow";
+        group.add(atmosphereGlow);
+
+        // Store it for later reference
+        group.userData.atmosphereGlow = atmosphereGlow;
+    }
+
     // Create light dynamic atmospheric glow
-    const atmosphereMaterial = createAtmosphereMaterial();
-    const atmosphereMesh = createAtmosphereGlow(radius * 1.05, width, height, atmosphereMaterial);
+    const lightAtmosphereMaterial = createAtmosphereMaterial(
+        glowColor || new THREE.Color(0.3, 0.6, 1.0),
+        (glowIntensity || 1.0) * 0.3
+    );
+    const atmosphereMesh = createAtmosphereGlow(radius * 1.05, width, height, lightAtmosphereMaterial);
     atmosphereMesh.name = "atmosphereGlow";
 
     // Position and parent correctly

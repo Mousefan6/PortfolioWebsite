@@ -84,6 +84,10 @@ export default function SaturnScene() {
                 opacity: 0.8
             }),
 
+            hasAtmosphericGlow: true,
+            glowColor: new THREE.Color(0x6644ff),
+            glowIntensity: 1.2,
+
             position: new THREE.Vector3(-60, 0, 0)
         });
 
@@ -111,6 +115,10 @@ export default function SaturnScene() {
                 opacity: 0.8
             }),
 
+            hasAtmosphericGlow: true,
+            glowColor: new THREE.Color(0xff6600),
+            glowIntensity: 1.2,
+
             position: new THREE.Vector3(60, -20, 0)
         });
 
@@ -137,6 +145,10 @@ export default function SaturnScene() {
                 transparent: true,
                 opacity: 0.8
             }),
+
+            hasAtmosphericGlow: true,
+            glowColor: new THREE.Color(0xff6600),
+            glowIntensity: 1.2,
 
             position: new THREE.Vector3(-60, -20, 180)
         });
