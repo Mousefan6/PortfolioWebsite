@@ -33,7 +33,8 @@ export class AudioManager {
     public currentSong: string | null;
     public autoplay: boolean;
 
-    importedSounds: Map<string, [string, string]>;
+    private importedSounds: Map<string, [string, string]>;
+    private onEndedListeners: (() => void | Promise<void>)[] = [];
 
     // Ring queue audio player variables
     private queue: { name: string, vocal: string, instrumental: string }[] = [];
@@ -194,6 +195,7 @@ export class AudioManager {
 
             this.vocalSource.onended = () => {
                 this.playing = false;
+                this.triggerEnded();
             };
         } catch (e) {
             console.error("Playback failed:", e);
@@ -401,7 +403,7 @@ export class AudioManager {
         this.registerAudio(song.name, song.vocal, song.instrumental);
         await this.loadAudio(song.name);
         this.play();
-        
+
         // If context was paused, resume it
         if (this.context && this.context.state === "suspended") {
             await this.context.resume();
@@ -421,6 +423,23 @@ export class AudioManager {
         }
     }
 
+    // Register a listener to be called when the playlist ends
+    public addOnEndedListener(listener: () => void | Promise<void>) {
+        this.onEndedListeners.push(listener);
+    }
+
+    // Remove a listener
+    public removeOnEndedListener(listener: () => void | Promise<void>) {
+        this.onEndedListeners = this.onEndedListeners.filter(fn => fn !== listener);
+    }
+
+    // Trigger all the on ended playlist handler
+    private async triggerEnded() {
+        for (const listener of this.onEndedListeners) {
+            await listener();
+        }
+    }
+
     // Suspend the audio context
     public async pause() {
         if (this.context && this.context.state === "running") {
@@ -437,6 +456,19 @@ export class AudioManager {
             this.paused = false;
             this.playing = true;
         }
+    }
+
+    /**
+     * Get the name of the current song
+     * 
+     * @returns The name of the current song
+     */
+    public getCurrentSong(): string | null {
+        if (this.queue.length === 0) {
+            return null;
+        }
+
+        return this.queue[this.currentIndex].name;
     }
 }
 

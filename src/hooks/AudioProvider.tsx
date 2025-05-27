@@ -52,10 +52,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             await audioManager.initializeAudio();
             audioManager.registerPlaylist(playlist);
             await audioManager.playNext();
-            audioManager.setVolume(0.1);
-            
+            audioManager.setVolume(0.05);
+
             // Play next when current ends
-            audioManager.setOnEndedHandler(async () => {
+            audioManager.addOnEndedListener(async () => {
                 await audioManager.playNext();
             });
 

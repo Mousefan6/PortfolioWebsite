@@ -1,143 +1,180 @@
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
-import { useAudioPlayer } from '../hooks/AudioProvider';
+import AudioVisualizer from "./AudioVisualizer";
 
-import PlayIcon from '/assets/Play.png';
-import PauseIcon from '/assets/Pause.png';
-import MusicMax from '/assets/VolumeMax.png';
-import MusicLow from '/assets/VolumeLow.png';
-import MusicNone from '/assets/VolumeX.png';
-import MusicBack from '/assets/GoBackward.png';
-import MusicSkip from '/assets/SkipForward.png';
+import { Volume2, VolumeX, Volume1, SkipBack, Pause, Play, SkipForward } from 'lucide-react';
+import { useAudioPlayer } from "../hooks/AudioProvider";
 
 const ControlButtons = () => {
     const { isReady, audioManager } = useAudioPlayer();
 
     const [isPlaying, setIsPlaying] = useState(true);
-    const [volume, setVolume] = useState(10); // Volume from 0-100
-    const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+    const [volume, setVolume] = useState(5); // Volume from 0-100
     const [isMuted, setIsMuted] = useState(false);
     const previousVolume = useRef(volume);
+    const [currentSong, setCurrentSong] = useState(audioManager.getCurrentSong() || null);
 
     const togglePlay = () => {
         setIsPlaying(prev => !prev);
-
-        if (isPlaying) {
-            audioManager.pause();
-        } else {
-            audioManager.resume();
-        }
-        console.log('Toggled play/pause button');
+        isPlaying ? audioManager.pause() : audioManager.resume();
     };
 
     const handleVolumeChange = (e: { target: { value: string; }; }) => {
         const newVolume = parseInt(e.target.value);
         setVolume(newVolume);
+        previousVolume.current = newVolume;
+        setIsMuted(false);
         audioManager.setVolume(newVolume / 100);
-        console.log('Volume changed to:', newVolume);
     };
 
     const skipBackward = async () => {
-        console.log('Skip backward clicked');
         await audioManager.playPrevious();
 
         const contextState = audioManager.context?.state;
         setIsPlaying(contextState === 'running');
+        setCurrentSong(audioManager.getCurrentSong() || null);
     };
 
     const skipForward = async () => {
-        console.log('Skip forward clicked');
         await audioManager.playNext();
 
         const contextState = audioManager.context?.state;
         setIsPlaying(contextState === 'running');
+        setCurrentSong(audioManager.getCurrentSong() || null);
     }
 
     const getVolumeIcon = () => {
-        if (volume === 0) return <img src={MusicNone} alt="Muted" className="w-6 h-6" />;
-        if (volume < 30) return <img src={MusicLow} alt="Low Volume" className="w-6 h-6" />;
-        return <img src={MusicMax} alt="High Volume" className="w-6 h-6" />;
+        if (volume === 0 || isMuted) return <VolumeX size={25} />;
+        if (volume < 30) return <Volume1 size={25} />;
+        return <Volume2 size={25} />;
     };
+
+    // Update the text for the song currently being played
+    useEffect(() => {
+        const updateCurrentSong = () => {
+            setCurrentSong(audioManager.getCurrentSong());
+        };
+
+        // Init with current song
+        updateCurrentSong();
+
+        audioManager.addOnEndedListener(updateCurrentSong);
+
+        return () => {
+            audioManager.removeOnEndedListener(updateCurrentSong);
+        };
+    }, [isReady]);
 
     return (
         <div className="absolute top-4 left-4 flex gap-4">
-            {/* Back button for songs*/}
-            <button
-                onClick={skipBackward}
-                disabled={!isReady}
-                className="hover:opacity-80 transition-opacity"
-            >
-                <img src={MusicBack} alt="Skip Backward" className="w-6 h-6" />
-            </button>
-
-            {/* Play button */}
-            <button
-                onClick={togglePlay}
-                disabled={!isReady}
-                className="hover:opacity-80 transition-opacity"
-            >
-                <img
-                    src={isPlaying ? PauseIcon : PlayIcon}
-                    alt={isPlaying ? "Pause" : "Play"}
-                    className="w-6 h-6"
-                />
-            </button>
-
-            {/* Skip Forward Button */}
-            <button
-                onClick={skipForward}
-                disabled={!isReady}
-                className="hover:opacity-80 transition-opacity"
-            >
-                <img src={MusicSkip} alt="Skip Forward" className="w-6 h-6" />
-            </button>
-
-            {/* Volume Control */}
-            <div className="relative flex items-center gap-2">
-                <button
-                    onMouseEnter={() => setShowVolumeSlider(true)}
-                    disabled={!isReady}
-                    onClick={() => {
-                        if (isMuted) {
-                            // Unmute: restore previous volume
-                            setVolume(previousVolume.current);
-                            audioManager.setVolume(previousVolume.current / 100);
-                            setIsMuted(false);
-                        } else {
-                            // Mute: store and set volume to 0
-                            previousVolume.current = volume;
-                            setVolume(0);
-                            audioManager.setVolume(0);
-                            setIsMuted(true);
-                        }
-                    }}
-                    className="hover:opacity-80 transition-opacity"
-                >
-                    {getVolumeIcon()}
-                </button>
-
-                {/* Volume Slider */}
-                {showVolumeSlider && (
+            <div className="w-96 h-48 flex flex-col gap-1.5">
+                {/* Top Slice (40%-60% split) */}
+                <div className="flex h-1/4 gap-1.5">
                     <div
-                        className="absolute left-14 top-1/2 transform -translate-y-1/2 bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20"
-                        onMouseLeave={() => setShowVolumeSlider(false)}
+                        className="w-[40%] bg-blue-500 px-2 flex items-center justify-start rounded-md opacity-75"
+                        style={{
+                            clipPath: 'polygon(0 0, 72% 0, 100% 100%, 0 100%)',
+                            transform: 'translateX(20.5%)'
+                        }}
                     >
-                        <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => {
+                                if (isMuted) {
+                                    // Unmute: restore previous volume
+                                    setVolume(previousVolume.current);
+                                    audioManager.setVolume(previousVolume.current / 100);
+                                    setIsMuted(false);
+                                } else {
+                                    // Mute: store and set volume to 0
+                                    previousVolume.current = volume;
+                                    setVolume(0);
+                                    audioManager.setVolume(0);
+                                    setIsMuted(true);
+                                }
+                            }}
+                            disabled={!isReady}
+                            className="p-1 hover:bg-blue-400/10 rounded-full"
+                        >
+                            {getVolumeIcon()}
+                        </button>
+
+                        {/* Volume slider */}
+                        <div className="relative w-full h-5 flex items-center">
                             <input
                                 type="range"
-                                disabled={!isReady}
                                 min="0"
                                 max="100"
                                 value={volume}
-                                onChange={handleVolumeChange} // Calls function to update volume
-                                className="w-20 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
+                                disabled={!isReady}
+                                onChange={handleVolumeChange}
+                                className="w-18 h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer"
                             />
                         </div>
                     </div>
-                )}
+
+                    <div
+                        className="w-[60%] mr-[5%] bg-green-500 px-2 flex items-center justify-center rounded-md opacity-75"
+                        style={{
+                            clipPath: 'polygon(0 0, 100% 0, 100% 100%, 19% 100%, 0 0)',
+                            transform: 'translateX(-5%)'
+                        }}
+                    >
+                        60%
+                    </div>
+                </div>
+
+                {/* Middle Slice (audio visualizer) */}
+                <div className="h-1/2 mx-7.5 bg-cyan-400 flex items-center justify-center rounded-md opacity-75">
+                    <AudioVisualizer className="w-[80%]" barColor="#FF69B4" />
+                </div>
+
+                {/* Bottom Slice (30%-70% split) */}
+                <div className="flex h-1/4 gap-1.5">
+                    <div
+                        className="w-[40%] bg-yellow-500 px-0.5 flex items-center justify-start rounded-md opacity-75"
+                        style={{
+                            clipPath: 'polygon(0 0, 100% 0, 90% 0, 0 290%)',
+                            transform: 'translateX(19.5%)'
+                        }}
+                    >
+                        <button
+                            onClick={skipBackward}
+                            disabled={!isReady}
+                            className="p-2 hover:bg-blue-400/50 rounded-full transition-all"
+                        >
+                            <SkipBack size={17.5} />
+                        </button>
+
+                        <button
+                            onClick={togglePlay}
+                            disabled={!isReady}
+                            className="p-2 hover:bg-green-400/50 rounded-full transition-all"
+                        >
+                            {isPlaying ? <Pause size={17.5} /> : <Play size={17.5} />}
+                        </button>
+
+                        <button
+                            onClick={skipForward}
+                            disabled={!isReady}
+                            className="p-2 hover:bg-blue-400/50 rounded-full transition-all"
+                        >
+                            <SkipForward size={17.5} />
+                        </button>
+                    </div>
+
+                    <div
+                        className="w-[60%] bg-purple-500 px-2 flex items-center justify-center rounded-md opacity-75"
+                        style={{
+                            clipPath: 'polygon(0 100%, 20% 0, 100% 0, 0 100000%, 0 0)',
+                            transform: 'translateX(-13.5%)'
+                        }}
+                    >
+                        {currentSong}
+                    </div>
+                </div>
             </div>
         </div>
-    );
+    )
 };
 
 export default ControlButtons;
