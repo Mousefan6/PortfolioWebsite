@@ -486,12 +486,18 @@ export class AudioManager {
      * @returns The name of the current song
      */
     public getCurrentSong(): string | null {
-        if (this.queue.length === 0) {
+        if (
+            this.queue.length === 0 ||
+            this.currentIndex < 0 ||
+            this.currentIndex >= this.queue.length ||
+            !this.queue[this.currentIndex]?.name
+        ) {
             return null;
         }
 
         return this.queue[this.currentIndex].name;
     }
+
 
     /**
      * Get the duration of the current song

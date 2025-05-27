@@ -14,7 +14,7 @@ const ControlButtons = () => {
     const [volume, setVolume] = useState(5); // Volume from 0-100
     const [isMuted, setIsMuted] = useState(false);
     const previousVolume = useRef(volume);
-    const [currentSong, setCurrentSong] = useState(audioManager.getCurrentSong() || null);
+    const [currentSong, setCurrentSong] = useState<string | null>(null);
     const [progressPercent, setProgressPercent] = useState(0);
     const [draggedPercent, setDraggedPercent] = useState<number | null>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -78,17 +78,19 @@ const ControlButtons = () => {
 
     // Update the text for the song currently being played
     useEffect(() => {
-        const updateCurrentSong = () => {
-            setCurrentSong(audioManager.getCurrentSong());
+        const updateSong = () => {
+            const song = audioManager.getCurrentSong();
+            if (song) setCurrentSong(song);
         };
 
-        // Init with current song
-        updateCurrentSong();
+        updateSong();
 
-        audioManager.addOnEndedListener(updateCurrentSong);
+        audioManager.addOnEndedListener(() => {
+            updateSong();
+        });
 
         return () => {
-            audioManager.removeOnEndedListener(updateCurrentSong);
+            audioManager.removeOnEndedListener(updateSong);
         };
     }, [isReady]);
 

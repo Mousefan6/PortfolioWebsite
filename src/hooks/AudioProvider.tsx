@@ -45,26 +45,36 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     const [isReady, setIsReady] = useState(false);
     const initialized = useRef(false);
 
-    const startAudio = async () => {
-        if (initialized.current) return;
-        initialized.current = true;
+    useEffect(() => {
+        const preload = async () => {
+            if (initialized.current) return;
+            initialized.current = true;
 
-        await audioManager.initializeAudio();
-        audioManager.registerPlaylist(playlist);
-        await audioManager.playNext();
-        audioManager.setVolume(0.05);
+            await audioManager.initializeAudio();
+            audioManager.registerPlaylist(playlist);
 
-        audioManager.addOnEndedListener(async () => {
-            await audioManager.playNext();
-        });
+            audioManager.setVolume(0.05);
 
-        console.log("Audio is fully ready!");
-        setIsReady(true);
-    };
+            audioManager.addOnEndedListener(async () => {
+                await audioManager.playNext();
+            });
+
+            console.log("Ready. Pending click...");
+        };
+
+        preload();
+    }, []);
 
     useEffect(() => {
         const handleFirstClick = async () => {
-            await startAudio();
+            if (audioManager.context?.state === 'suspended') {
+                await audioManager.context.resume();
+            }
+
+            await audioManager.playNext();
+
+            setIsReady(true);
+
             window.removeEventListener('click', handleFirstClick);
         };
 
