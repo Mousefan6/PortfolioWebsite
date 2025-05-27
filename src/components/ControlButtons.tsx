@@ -8,6 +8,8 @@ import { useAudioPlayer } from "../hooks/AudioProvider";
 const ControlButtons = () => {
     const { isReady, audioManager } = useAudioPlayer();
 
+    const progressRef = useRef<HTMLDivElement>(null);
+
     const [isPlaying, setIsPlaying] = useState(true);
     const [volume, setVolume] = useState(5); // Volume from 0-100
     const [isMuted, setIsMuted] = useState(false);
@@ -54,23 +56,25 @@ const ControlButtons = () => {
     };
 
     // Handles offset of the progress bar when dragged/clicked
-    const handleSeek = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-        const rect = e.currentTarget.getBoundingClientRect();
+    const handleSeek = (e: MouseEvent, final: boolean = false) => {
+        if (!progressRef.current) return;
+
+        const rect = progressRef.current.getBoundingClientRect();
         const clickX = e.clientX - rect.left;
         const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
 
         const duration = audioManager.getDuration();
         const newTime = percent * duration;
 
-        if (isDragging) {
-            setDraggedPercent(percent * 100);
-        }
+        setDraggedPercent(percent * 100);
 
-        if (e.type === 'mouseup' || e.type === 'click') {
+        if (final) {
             audioManager.seek(newTime);
             setDraggedPercent(null);
+            setProgressPercent(percent * 100);
         }
     };
+
 
     // Update the text for the song currently being played
     useEffect(() => {
@@ -106,12 +110,27 @@ const ControlButtons = () => {
         return () => cancelAnimationFrame(animationFrame);
     }, [isDragging]);
 
-    // Handle dragging
+    // Handle progress bar dragging (allow off-progress-bar drag when continue to hold down the mouse)
     useEffect(() => {
-        const onMouseUp = () => setIsDragging(false);
-        window.addEventListener('mouseup', onMouseUp);
-        return () => window.removeEventListener('mouseup', onMouseUp);
-    }, []);
+        const onMouseMove = (e: MouseEvent) => {
+            if (isDragging) handleSeek(e);
+        };
+
+        const onMouseUp = (e: MouseEvent) => {
+            if (isDragging) {
+                handleSeek(e, true);
+                setIsDragging(false);
+            }
+        };
+
+        window.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("mouseup", onMouseUp);
+
+        return () => {
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("mouseup", onMouseUp);
+        };
+    }, [isDragging]);
 
     return (
         <div className="absolute top-4 left-4 flex gap-4">
@@ -161,14 +180,25 @@ const ControlButtons = () => {
                     </div>
 
                     <div
-                        className="w-[60%] mr-[5%] bg-green-500 px-2 flex items-center justify-center rounded-md opacity-75"
+                        className="w-[60%] mr-[5%] bg-green-500 px-2 flex items-center justify-center rounded-md opacity-75 select-none relative"
                         style={{
                             clipPath: 'polygon(0 0, 100% 0, 100% 100%, 19% 100%, 0 0)',
-                            transform: 'translateX(-5%)'
+                            transform: 'translateX(-5%)',
+                            userSelect: 'none'
                         }}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onDragStart={(e) => e.preventDefault()}
+                        onContextMenu={(e) => e.preventDefault()}
                     >
-                        60%
+                        <span className="invisible">60%</span>
+                        <span
+                            className="absolute select-none pointer-events-none"
+                            style={{ userSelect: 'none' }}
+                        >
+                            60%
+                        </span>
                     </div>
+
                 </div>
 
                 {/* Middle Slice (audio visualizer & progress bar) */}
@@ -183,22 +213,11 @@ const ControlButtons = () => {
 
                     {/* Interactive background bar */}
                     <div
+                        ref={progressRef}
                         className="absolute top-0 left-0 w-full h-full bg-cyan-400/10 cursor-pointer rounded-md z-30"
                         onMouseDown={(e) => {
                             setIsDragging(true);
-                            handleSeek(e);
-                        }}
-                        onMouseMove={(e) => {
-                            if (isDragging) handleSeek(e);
-                        }}
-                        onMouseUp={(e) => {
-                            if (isDragging) {
-                                handleSeek(e);
-                                setIsDragging(false);
-                            }
-                        }}
-                        onMouseLeave={() => {
-                            if (isDragging) setIsDragging(false);
+                            handleSeek(e.nativeEvent);
                         }}
                     />
 
@@ -241,13 +260,23 @@ const ControlButtons = () => {
                     </div>
 
                     <div
-                        className="w-[60%] bg-purple-500 px-2 flex items-center justify-center rounded-md opacity-75"
+                        className="w-[60%] bg-purple-500 px-2 flex items-center justify-center rounded-md opacity-75 select-none relative"
                         style={{
                             clipPath: 'polygon(0 100%, 20% 0, 100% 0, 0 100000%, 0 0)',
-                            transform: 'translateX(-13.5%)'
+                            transform: 'translateX(-13.5%)',
+                            userSelect: 'none'
                         }}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onDragStart={(e) => e.preventDefault()}
+                        onContextMenu={(e) => e.preventDefault()}
                     >
-                        {currentSong}
+                        <span className="invisible">{currentSong}</span>
+                        <span
+                            className="absolute select-none pointer-events-none"
+                            style={{ userSelect: 'none' }}
+                        >
+                            {currentSong}
+                        </span>
                     </div>
                 </div>
             </div>
