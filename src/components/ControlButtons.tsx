@@ -13,6 +13,10 @@ const ControlButtons = () => {
     const [isMuted, setIsMuted] = useState(false);
     const previousVolume = useRef(volume);
     const [currentSong, setCurrentSong] = useState(audioManager.getCurrentSong() || null);
+    const [progressPercent, setProgressPercent] = useState(0);
+    const [draggedPercent, setDraggedPercent] = useState<number | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+
 
     const togglePlay = () => {
         setIsPlaying(prev => !prev);
@@ -49,6 +53,25 @@ const ControlButtons = () => {
         return <Volume2 size={25} />;
     };
 
+    // Handles offset of the progress bar when dragged/clicked
+    const handleSeek = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
+
+        const duration = audioManager.getDuration();
+        const newTime = percent * duration;
+
+        if (isDragging) {
+            setDraggedPercent(percent * 100);
+        }
+
+        if (e.type === 'mouseup' || e.type === 'click') {
+            audioManager.seek(newTime);
+            setDraggedPercent(null);
+        }
+    };
+
     // Update the text for the song currently being played
     useEffect(() => {
         const updateCurrentSong = () => {
@@ -64,6 +87,31 @@ const ControlButtons = () => {
             audioManager.removeOnEndedListener(updateCurrentSong);
         };
     }, [isReady]);
+
+    // Update the progress bar
+    useEffect(() => {
+        let animationFrame: number;
+
+        const update = () => {
+            if (!isDragging) {
+                const currentTime = audioManager.getCurrentTime?.() || 0;
+                const duration = audioManager.getDuration?.() || 1;
+
+                setProgressPercent((currentTime / duration) * 100);
+            }
+            animationFrame = requestAnimationFrame(update);
+        };
+
+        update();
+        return () => cancelAnimationFrame(animationFrame);
+    }, [isDragging]);
+
+    // Handle dragging
+    useEffect(() => {
+        const onMouseUp = () => setIsDragging(false);
+        window.addEventListener('mouseup', onMouseUp);
+        return () => window.removeEventListener('mouseup', onMouseUp);
+    }, []);
 
     return (
         <div className="absolute top-4 left-4 flex gap-4">
@@ -123,9 +171,39 @@ const ControlButtons = () => {
                     </div>
                 </div>
 
-                {/* Middle Slice (audio visualizer) */}
-                <div className="h-1/2 mx-7.5 bg-cyan-400 flex items-center justify-center rounded-md opacity-75">
-                    <AudioVisualizer className="w-[80%]" barColor="#FF69B4" />
+                {/* Middle Slice (audio visualizer & progress bar) */}
+                <div className="h-1/2 mx-7.5 bg-cyan-400 flex items-center justify-center rounded-md opacity-75 relative">
+
+                    {/* Dark progress fill — playback position */}
+                    <div
+                        className="absolute top-0 left-0 h-full bg-black/20 rounded-md z-10 pointer-events-none"
+                        style={{ width: `${draggedPercent ?? progressPercent}%` }}
+                    />
+
+
+                    {/* Interactive background bar */}
+                    <div
+                        className="absolute top-0 left-0 w-full h-full bg-cyan-400/10 cursor-pointer rounded-md z-30"
+                        onMouseDown={(e) => {
+                            setIsDragging(true);
+                            handleSeek(e);
+                        }}
+                        onMouseMove={(e) => {
+                            if (isDragging) handleSeek(e);
+                        }}
+                        onMouseUp={(e) => {
+                            if (isDragging) {
+                                handleSeek(e);
+                                setIsDragging(false);
+                            }
+                        }}
+                        onMouseLeave={() => {
+                            if (isDragging) setIsDragging(false);
+                        }}
+                    />
+
+                    {/* Foreground visualizer */}
+                    <AudioVisualizer className="w-[80%] z-40 pointer-events-none" barColor="#FF69B4" />
                 </div>
 
                 {/* Bottom Slice (30%-70% split) */}

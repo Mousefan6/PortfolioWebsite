@@ -28,10 +28,13 @@ export class AudioManager {
     public playing: boolean;
     public muted: boolean;
     public paused: boolean;
+    private startTime: number = 0;
+    private offset: number = 0;
 
     // Audio settings
     public currentSong: string | null;
     public autoplay: boolean;
+    public volume: number;
 
     private importedSounds: Map<string, [string, string]>;
     private onEndedListeners: (() => void | Promise<void>)[] = [];
@@ -65,6 +68,7 @@ export class AudioManager {
         // Audio settings
         this.currentSong = null;
         this.autoplay = false;
+        this.volume = 0.1;
 
         this.importedSounds = new Map<string, [string, string]>();
     }
@@ -188,8 +192,9 @@ export class AudioManager {
             this.gainNode.connect(this.context.destination);
 
             // Start playback
-            this.vocalSource.start(0);
-            this.instrumentalSource.start(0);
+            this.startTime = this.context.currentTime;
+            this.vocalSource.start(0, this.offset);
+            this.instrumentalSource.start(0, this.offset);
 
             this.playing = true;
 
@@ -202,6 +207,16 @@ export class AudioManager {
         }
     }
 
+    /**
+     * Play the audio at a specific time
+     * 
+     * @param seconds The number of seconds to seek.
+     */
+    public seek(seconds: number): void {
+        this.offset = seconds;
+        this.play(); // will use this.offset internally
+    }
+
     // Stops and terminate the audio
     public stop(): void {
         if (this.vocalSource) {
@@ -209,12 +224,16 @@ export class AudioManager {
             this.vocalSource.stop(0);
             this.vocalSource.disconnect();
             this.vocalSource = null;
+            this.vocalAnalyser = null;
+            this.vocalData = null;
         }
 
         if (this.instrumentalSource) {
             this.instrumentalSource.stop(0);
             this.instrumentalSource.disconnect();
             this.instrumentalSource = null;
+            this.instrumentalAnalyser = null;
+            this.instrumentalData = null;
         }
 
         this.playing = false;
@@ -243,6 +262,7 @@ export class AudioManager {
 
         if (this.gainNode) {
             this.gainNode.gain.value = value;
+            this.volume = value;
         }
     }
 
@@ -356,6 +376,7 @@ export class AudioManager {
         }
 
         this.stop();
+        this.offset = 0;
 
         // Disconnect the on ended handler
         if (this.vocalSource) {
@@ -389,6 +410,7 @@ export class AudioManager {
         }
 
         this.stop();
+        this.offset = 0;
 
         // Disconnect the on ended handler
         if (this.vocalSource) {
@@ -469,6 +491,30 @@ export class AudioManager {
         }
 
         return this.queue[this.currentIndex].name;
+    }
+
+    /**
+     * Get the duration of the current song
+     * 
+     * @returns The duration of the current song
+     */
+    public getDuration(): number {
+        return typeof this.vocalBuffer?.duration === "number" ? this.vocalBuffer.duration : 0;
+    }
+
+    /**
+     * Get the current time of where the audio is at
+     * 
+     * @returns The current time in seconds
+     */
+    public getCurrentTime(): number {
+        if (!this.context) return 0;
+
+        if (this.playing) {
+            return this.context.currentTime - this.startTime + this.offset;
+        } else {
+            return this.offset; // paused or stopped, so offset holds the last known time
+        }
     }
 }
 
