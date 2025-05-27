@@ -13,7 +13,7 @@ function App() {
     document.title = "Portfolio Website";
 
     return (
-        <Router>
+        <Router basename="/PortfolioWebsite">
             <Routes>
                 <Route element={<DefaultLayout />}>
                     <Route path="/" element={<LandingPage />} />
