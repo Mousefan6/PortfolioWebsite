@@ -1,6 +1,6 @@
 /**************************************************************
-* Author(s): Bryan Lee
-* Last Updated: 5/25/2025
+* Author(s): Bryan Lee & Jaden Lee
+* Last Updated: 9/21/2025
 *
 * File:: handlePlanetClick.ts
 *
@@ -14,83 +14,123 @@
 import * as THREE from 'three';
 import { gsap } from 'gsap';
 
+// ============================================================================================= //
+// Helper function to check if an object is a descendant of another
+// ============================================================================================= //
+    
+function isDescendantOf(object: THREE.Object3D, potentialAncestor: THREE.Object3D): boolean {
+    let current = object;
+    while (current.parent) {
+        if (current.parent === potentialAncestor) {
+            return true;
+        }
+        current = current.parent;
+    }
+    return false;
+}
+
 export function handlePlanetClick(
     event: MouseEvent,
     camera: THREE.PerspectiveCamera,
     raycaster: THREE.Raycaster,
     mouse: THREE.Vector2,
-    clickableObjects: THREE.Object3D[]
-) {
+    clickableObjects: THREE.Object3D[],
+    controls: any,
+    activePlanet: THREE.Object3D | null,
+    setActivePlanet: (p: THREE.Object3D) => void
+): boolean {
     // Get mouse position
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    // Cast a ray from the mouse position
+    // ============================================================================================= //
+    // Raycast on clickable objects
+    // ============================================================================================= //
+    
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(clickableObjects, true);
+    if (!intersects.length) return false;
 
-    if (intersects.length === 0) return;
+    const clickedObject = intersects[0].object;
+    
+    // ============================================================================================= //
+    // Prevent camera from resetting to current planet on click
+    // ============================================================================================= //
+    
+    const isClickingActivePlanet = activePlanet && isDescendantOf(clickedObject, activePlanet);
 
-    // Get the first intersection
-    const intersection = intersects[0];
-    const clickedPoint = intersection.point.clone();
+    if (isClickingActivePlanet) {
+        // Check for double-click
+        if (event.detail === 2) { // Browser automatically sets detail to 2 for double-clicks
+            resetCamera();
+            setActivePlanet(null);
+            return true;
+        }
+        // Ignore single clicks on active planet
+        return false;
+    }
 
-    // Get the target object
-    const targetObject = intersection.object as THREE.Mesh;
+    // ============================================================================================= //
+    // Check if it's an orb or has clickable userData
+    // ============================================================================================= //
+    
+    if (clickedObject.userData.isClickable && clickedObject.userData.onClick) {
+        clickedObject.userData.onClick();
+        return true; // Return true to indicate orb was clicked
+    }
+
+    // ============================================================================================= //
+    // On planet click
+    // ============================================================================================= //
+    // const targetObject = intersects[0].object as THREE.Mesh;
     const targetWorldPos = new THREE.Vector3();
-    targetObject.getWorldPosition(targetWorldPos);
+    clickedObject.getWorldPosition(targetWorldPos);
 
-    // Get the radius of the target object
-    const geometry = targetObject.geometry as THREE.SphereGeometry;
-    const radius = geometry.parameters.radius;
+    // Get radius of target object
+    let radius = 10;
+    // const geometry = clickedObject.geometry as THREE.SphereGeometry; // For sphere
+    const geo = (clickedObject as any).geometry; // Dynamically get radius of clicked object
+    if (geo) {
+        if (geo instanceof THREE.SphereGeometry && geo.parameters?.radius) {
+            radius = geo.parameters.radius;
+        }
+        else if (geo.boundingSphere) {
+            geo.computeBoundingSphere?.();
+            radius = geo.boundingSphere?.radius ?? radius;
+        }
+    }
 
-    // Calculate the normal vector (perpendicular to the clicked point)
-    const normal = new THREE.Vector3()
-        .subVectors(clickedPoint, targetWorldPos)
-        .normalize();
+    const offsetDir = new THREE.Vector3(1, 1, 1).normalize();
+    // const offset = new THREE.Vector3().subVectors(camera.position, targetWorldPos).normalize();
+    const distance = radius * 3; // zoom distance from center
+    const cameraTargetPos = targetWorldPos.clone().addScaledVector(offsetDir, distance);
 
-    // Calculate the target position
-    const surfaceOffset = 2;
-    const cameraTargetPos = new THREE.Vector3()
-        .copy(clickedPoint)
-        .addScaledVector(normal, radius ? surfaceOffset : 2);
+    if (controls) controls.enabled = false;
 
-    // Calculate the lookAt position for the surface of the clicked point
-    // relative to the current camera position (not rotational agility)
-    const currentLookAt = new THREE.Vector3();
-    currentLookAt.copy(camera.getWorldDirection(new THREE.Vector3())).add(camera.position);
-
-    const lookAtTween = {
-        lx: currentLookAt.x,
-        ly: currentLookAt.y,
-        lz: currentLookAt.z,
-        ux: camera.up.x,
-        uy: camera.up.y,
-        uz: camera.up.z,
-    };
-
-    // Animate the camera to the position (x, y, z)
+    // Tween camera to planet center
     gsap.to(camera.position, {
         x: cameraTargetPos.x,
         y: cameraTargetPos.y,
         z: cameraTargetPos.z,
         duration: 2,
         ease: 'power2.inOut',
-    });
-
-    // Apply camera rotation to the lookAt
-    gsap.to(lookAtTween, {
-        lx: clickedPoint.x,
-        ly: clickedPoint.y,
-        lz: clickedPoint.z,
-        ux: normal.x,
-        uy: normal.y,
-        uz: normal.z,
-        duration: 2,
-        ease: 'power2.inOut',
-        onUpdate: () => {
-            camera.lookAt(new THREE.Vector3(lookAtTween.lx, lookAtTween.ly, lookAtTween.lz));
-            camera.up.set(lookAtTween.ux, lookAtTween.uy, lookAtTween.uz);
+        onUpdate: () => controls.update(),
+        onComplete: () => {
+            if (controls) controls.enabled = true;
         }
     });
+
+    if (controls && controls.target) {
+        gsap.to(controls.target, {
+            x: targetWorldPos.x,
+            y: targetWorldPos.y,
+            z: targetWorldPos.z,
+            duration: 2,
+            ease: 'power2.inOut',
+            onUpdate: () => controls.update()
+        });
+    }
+
+    setActivePlanet(clickedObject);
+    return true;
 }
