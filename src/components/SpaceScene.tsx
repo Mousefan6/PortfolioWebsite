@@ -1,7 +1,6 @@
 // Package imports
-import { useEffect, useRef, useState, useCallback } from 'react'; // Callback used for reset cam button
+import { useEffect, useRef, useState } from 'react'; // Callback used for reset cam button
 import * as THREE from 'three';
-import TWEEN from '@tweenjs/tween.js';
 
 // Three.js function imports
 import WEBGL from 'three/examples/jsm/capabilities/WebGL';
@@ -13,54 +12,24 @@ import { useAudioPlayer } from '../hooks/AudioProvider';
 import { createRingPlanet, animateOneRingAudio, animateTwoRingAudio } from '../util/RingPlanet';
 import { createPlanet } from '../util/Planet';
 import { handlePlanetClick } from '../util/handlePlanetClick';
+import { handleOrbClick } from '../util/handleOrbClick';
+import { resetCamera } from '../util/cameraUtils';
 import { createOrbEvent } from './OrbEvent';
-import OrbUI from '../layouts/OrbUI';
+// import OrbUI from '../layouts/OrbUI';
 
 export default function SaturnScene() {
+    // Refs to store Three.js objects for use in callbacks
     const mountRef = useRef<HTMLCanvasElement>(null);
+    const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+    const controlsRef = useRef<OrbitControls | null>(null);
+
+    // State Manager for Planet and Orb
+    // Future implementation: color of ui change according to which state you are in, hence active planet/orb
     const [activePlanet, setActivePlanet] = useState<THREE.Object3D | null>(null);
+    const [activeOrb, setActiveOrb] = useState<THREE.Object3D | null>(null);
 
     const { audioManager } = useAudioPlayer();
-
-    // Refs to store Three.js objects for use in callbacks
-    const cameraRef = useRef<THREE.PerspectiveCamera>();
-    const controlsRef = useRef<OrbitControls>();
-    const resetCamera = useCallback(() => {
-        if (!cameraRef.current || !controlsRef.current) return;
-
-        const initialCameraPosition = new THREE.Vector3(0, 0, 30);
-        const initialControlsTarget = new THREE.Vector3(0, 0, 0);
-
-        // Disable controls during animation
-        controlsRef.current.enabled = false;
-
-        // Animate camera back to initial position
-        gsap.to(cameraRef.current.position, {
-            x: initialCameraPosition.x,
-            y: initialCameraPosition.y,
-            z: initialCameraPosition.z,
-            duration: 2,
-            ease: 'power2.inOut',
-            onUpdate: () => controlsRef.current?.update(),
-            onComplete: () => {
-                if (controlsRef.current) {
-                    controlsRef.current.enabled = true;
-                }
-            }
-        });
-
-        if (controlsRef.current?.target) {
-            gsap.to(controlsRef.current.target, {
-                x: initialControlsTarget.x,
-                y: initialControlsTarget.y,
-                z: initialControlsTarget.z,
-                duration: 2,
-                ease: 'power2.inOut',
-                onUpdate: () => controlsRef.current?.update()
-            });
-        }
-    }, []);
-
+    
     useEffect(() => {
         if (!WEBGL.isWebGL2Available()) {
             document.body.innerHTML = '<div style="color:white;background:red;padding:20px;font-family:sans-serif">' +
@@ -105,12 +74,9 @@ export default function SaturnScene() {
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
 
-
         cameraRef.current = camera;
         controlsRef.current = controls;
-        const initialControlsTarget = controls.target.clone();
-        const initialCameraPosition = camera.position.clone();
-        
+
         // ============================================================================================= //
         // Create celestial bodies
         // ============================================================================================= //
@@ -249,75 +215,43 @@ export default function SaturnScene() {
         const mouse = new THREE.Vector2();
 
         const clickableObjects = [saturn.planet, moon.planet, moon2.planet, planet.planet, sun];
+        const orbs: THREE.Object3D[] = [];
 
-        // ============================================================================================= //
-        // State manager for current planet
-        // ============================================================================================= //
-
-        
-
-        // ============================================================================================= //
-        // Clickable orb event for displaying UI 
-        // ============================================================================================= //
-
-        const handleOrbClick = (orbData: {position: THREE.Vector3, type: string, title: string}) => {
-            // setActiveOrb(orbData);
-            // setShowOrbUI(true);
-
-            const cameraTarget = orbData.position.clone();
-            const cameraPosition = cameraTarget.clone().add(new THREE.Vector3(10, 10, 10)); // Can change pos
-
-            new TWEEN.Tween(camera.position) // Tweening for smooth cam movements
-                .to(cameraPosition, 1000)
-                .easing(TWEEN.Easing.Quadratic.Out)
-                .start();
-
-            new TWEEN.Tween(controls.target)
-                .to(cameraTarget, 1000)
-                .easing(TWEEN.Easing.Quadratic.Out)
-                .start();
-
-            controls.enabled = false;
-            setTimeout(() => {
-                controls.enabled = true;
-            }, 1000);
-        };
-
-        const orb1 = createOrbEvent({ // orb1 for testing
+        // Orb example
+        const orb1 = createOrbEvent({
             radius: 1,
             color: 0x00FFFF,
             position: new THREE.Vector3(40, 40, 40),
-            onClick: () => handleOrbClick({
-                position: new THREE.Vector3(40, 40, 40),
-                type: 'info',
-                title: 'Orb Event 1'
-            })
+            onClick: () => console.log("OrbEvent triggered")
         });
-
-        // const orbEvents = [orb1];
         scene.add(orb1.group);
+        orbs.push(orb1.orb, orb1.torus);
 
-        clickableObjects.push(orb1.orb, orb1.torus);
-
-        // const [orbClicked, setOrbClicked] = useState(false);
+        // ============================================================================================= //
+        // Handle Mouse clicks
+        // ============================================================================================= //
 
         const onCelestialBodyClick = (event: MouseEvent) => {
-            const result = handlePlanetClick(
+            const orbClicked = handleOrbClick(
+                event,
+                camera,
+                raycaster,
+                mouse,
+                orbs,
+                controls,
+                setActiveOrb
+            );
+            if (orbClicked) return;
+
+            handlePlanetClick(
                 event, 
                 camera, 
                 raycaster, 
                 mouse, 
                 clickableObjects,
                 controls,
-                activePlanet,
                 setActivePlanet
             );
-
-            if (result) {
-                // setOrbClicked(true);
-                // showOrbUI(false);
-                // centerCameraOnPlanet(); // to make
-            }
         };
 
         window.addEventListener("click", onCelestialBodyClick);
@@ -427,5 +361,36 @@ export default function SaturnScene() {
         };
     }, []);
 
-    return <canvas id="bg" ref={mountRef} />;
+    // =========================================================================================
+    // Reset Camera Button
+    // =========================================================================================
+    return (
+        <>
+            <canvas id="bg" ref={mountRef} />
+            <button
+                style={{
+                    position: 'absolute',
+                    top: '20px',
+                    right: '20px',
+                    padding: '8px 12px',
+                    background: '#111',
+                    color: '#fff',
+                    borderRadius: '8px',
+                    cursor: 'pointer'
+                }}
+                onClick={() => {
+                    if (cameraRef.current && controlsRef.current) {
+                        // const resetState = { // should have reset state for return button in future
+                        //     position: new THREE.Vector3(-360, 50, 40),
+                        //     target: new THREE.Vector3(0, 5, 0)
+                        // };
+                        resetCamera(cameraRef.current, controlsRef.current, setActivePlanet, setActiveOrb);
+                    }
+                }}
+            >
+                Reset Camera
+            </button>
+        </>
+    );
+    // return <canvas id="bg" ref={mountRef} />;
 }
